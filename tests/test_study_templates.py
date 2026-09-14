@@ -12,6 +12,8 @@ def test_study_summary_includes_trade_count():
             "max_drawdown_pct": 2,
             "win_rate": 55,
             "trade_count": 17,
+            "wins": 9,
+            "losses": 8,
             "profit_factor": 1.2,
             "prop_pass": True,
             "trading_days": 4,
@@ -35,5 +37,6 @@ def test_study_summary_includes_trade_count():
     }
     text = study_result_summary("abc123", payload, "BTC_PERP", "30m")
     assert "17 trades" in text
+    assert "9W/8L" in text
     assert "4.50%" in text
     assert "sig L100/S80" in text

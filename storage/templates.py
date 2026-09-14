@@ -42,7 +42,8 @@ def result_summary(
         f"<b>Backtest complete</b> <code>{escape(job_id)}</code>",
         f"<b>{escape(headline)}</b>",
         "",
-        f"Net PnL: {result.net_pnl_pct:+.2f}% · {result.trade_count} trades",
+        f"Net PnL: {result.net_pnl_pct:+.2f}% · {result.trade_count} trades "
+        f"({result.wins}W / {result.losses}L)",
         f"Max DD: {result.max_drawdown_pct:.2f}%",
         f"Win rate: {result.win_rate:.1f}%",
         f"Profit factor: {result.profit_factor:.2f}",

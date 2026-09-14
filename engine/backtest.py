@@ -380,6 +380,8 @@ def simulate_backtest(
         max_drawdown_pct=max_dd,
         win_rate=win_rate,
         trade_count=len(trades),
+        wins=len(wins),
+        losses=len(losses),
         profit_factor=min(profit_factor, 99.0),
         prop_pass=prop_state.pass_prop,
         prop_fail_reason=prop_state.fail_reason,

@@ -125,6 +125,8 @@ class BacktestResult(BaseModel):
     max_drawdown_pct: float
     win_rate: float
     trade_count: int
+    wins: int = 0
+    losses: int = 0
     profit_factor: float
     prop_pass: bool
     prop_fail_reason: str | None = None
