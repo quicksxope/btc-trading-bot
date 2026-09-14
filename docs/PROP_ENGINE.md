@@ -16,4 +16,14 @@ Templates under `configs/prop_firms/` with `engine: usd`:
 
 During the bar loop, new entries stop after a daily or max-loss breach. Final pass/fail uses the same USD rules plus consistency where configured.
 
-**Not yet modeled:** fixed `$` risk per trade, SL/TP from swing structure, max trades/day, news/weekend flags (see `backtest-trade-holaprime10k` for full simulator).
+## `sltp_risk` execution (Phase C)
+
+Prop templates may set `execution_defaults`:
+
+- Swing high/low stop (`swing_lookback`)
+- Take profit at `risk_reward_ratio ×` stop distance
+- Position size from `risk_per_trade_usd` (capped by equity fraction & remaining daily loss budget)
+- Optional `max_trades_per_day`
+- Exits on SL/TP intrabar (SL first if both hit)
+
+**Still simplified vs Hola folder:** session/news/weekend guards, daily profit cap, consecutive-loss pause, leverage margin model.

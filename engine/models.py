@@ -77,7 +77,14 @@ class PropFirmConfig(BaseModel):
 
 class ExecutionConfig(BaseModel):
     fill: Literal["next_bar_open", "bar_close"] = "next_bar_open"
+    mode: Literal["signal_flip", "sltp_risk"] = "signal_flip"
     initial_balance: float = 100_000.0
+    risk_per_trade_usd: float | None = None
+    risk_reward_ratio: float = 2.0
+    swing_lookback: int = 5
+    max_equity_fraction: float = 0.99
+    max_trades_per_day: int | None = None
+    finalize_open_at_end: bool = True
     allow_entries_outside_session: bool = False
     allow_exits_outside_session: bool = True
     daily_reset: Literal["utc", "session"] = "session"
@@ -124,3 +131,4 @@ class BacktestResult(BaseModel):
     worst_daily_loss_pct: float = 0.0
     trading_days: int = 0
     equity_final: float = 0.0
+    execution_mode: str = "signal_flip"

@@ -13,6 +13,12 @@ reference_usd:
   consistency_pct: 20
 daily_loss_pct: 3.0
 max_drawdown_pct: 7.0
+execution_defaults:
+  mode: sltp_risk
+  risk_per_trade_usd: 150
+  risk_reward_ratio: 2.0
+  swing_lookback: 5
+  max_trades_per_day: 2
 allowed_instruments:
   - BTC_PERP
   - ETH_PERP

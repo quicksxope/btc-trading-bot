@@ -32,6 +32,7 @@ class PropPack:
     consistency_rule: str = "none"
     consistency_target_ratio: float = 0.5
     usd_rules: dict | None = None
+    execution_defaults: dict | None = None
 
 
 def load_prop_pack(pack_id: str) -> PropPack:
@@ -56,6 +57,7 @@ def load_prop_pack(pack_id: str) -> PropPack:
             consistency_rule=str(raw.get("consistency_rule", "none")),
             consistency_target_ratio=float(raw.get("consistency_target_ratio", 0.5)),
             usd_rules=raw.get("usd_rules"),
+            execution_defaults=raw.get("execution_defaults"),
         )
     return PropPack(
         pack_id=pack_id,

@@ -51,6 +51,8 @@ def result_summary(
         f"Worst daily: {result.worst_daily_loss_pct:.2f}%",
         f"Trading days: {result.trading_days}",
     ]
+    if result.execution_mode and result.execution_mode != "signal_flip":
+        lines.append(f"Execution: {escape(result.execution_mode)}")
     if result.prop_engine and result.prop_engine not in ("off", "pct"):
         lines.append(f"Prop engine: {escape(result.prop_engine)}")
     if result.prop_detail:

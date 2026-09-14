@@ -14,6 +14,11 @@ reference_usd:
   profit_target: 3000
   daily_loss: 1000
   max_loss: 2000
+execution_defaults:
+  mode: sltp_risk
+  risk_per_trade_usd: 500
+  risk_reward_ratio: 2.0
+  swing_lookback: 5
 allowed_instruments:
   - NASDAQ_CFD
   - SPX500_CFD

@@ -12,6 +12,12 @@ reference_usd:
   daily_loss: 1500
   max_loss: 3500
   risk_per_trade: 750
+execution_defaults:
+  mode: sltp_risk
+  risk_per_trade_usd: 750
+  risk_reward_ratio: 2.0
+  swing_lookback: 5
+  max_trades_per_day: 2
 allowed_instruments:
   - BTC_PERP
   - ETH_PERP

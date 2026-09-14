@@ -62,10 +62,9 @@ def review_summary_html(draft: BacktestDraft) -> str:
                 extra += f" / min days {draft.prop_min_trading_days}"
             lines.append(f"Engine limits: {extra}")
         if pack.engine == "usd":
-            lines.append(
-                "<i>USD prop engine: daily/max loss USD, consistency where configured. "
-                "Not SL/TP per-trade sizing yet.</i>"
-            )
+            lines.append("<i>USD prop engine + SL/TP risk sizing when template defines execution_defaults.</i>")
+        elif pack.execution_defaults and pack.execution_defaults.get("mode") == "sltp_risk":
+            lines.append("<i>SL/TP swing stops + risk/trade from prop template.</i>")
 
     lines.append(f"Balance: ${draft.initial_balance:,.0f}")
     lines.append(f"Fill: {escape(draft.fill_model)}")
@@ -78,8 +77,8 @@ def hola_result_disclaimer(pack_id: str | None) -> str | None:
     from engine.prop_firm import load_prop_pack
 
     pack = load_prop_pack(pack_id)
-    if pack.engine == "usd":
-        return "<i>USD prop rules applied; per-trade risk/SL·TP still signal-flip model.</i>"
+    if pack.engine == "usd" or (pack.execution_defaults or {}).get("mode") == "sltp_risk":
+        return "<i>SL/TP + USD risk sizing from prop template when configured.</i>"
     if pack_id.startswith(HOLA_PACK_PREFIX) or pack_id.startswith(TOPSTEP_PACK_PREFIX):
         return "<i>Legacy % prop pack — pick a template with USD engine for Phase B rules.</i>"
     return None

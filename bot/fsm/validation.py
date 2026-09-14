@@ -217,6 +217,18 @@ def draft_to_config(draft: BacktestDraft) -> BacktestConfig:
 
     daily_reset = "utc" if draft.prop_daily_reset_utc else "session"
 
+    from engine.execution_sltp import enrich_execution_from_pack
+
+    execution = ExecutionConfig(
+        fill=draft.fill_model,
+        initial_balance=draft.initial_balance,
+        allow_entries_outside_session=False,
+        allow_exits_outside_session=True,
+        daily_reset=daily_reset,
+    )
+    if draft.prop_pack and draft.prop_pack not in (None, "none"):
+        execution = enrich_execution_from_pack(execution, draft.prop_pack)
+
     return BacktestConfig(
         instrument=draft.instrument,
         asset_class=ac,
@@ -229,12 +241,6 @@ def draft_to_config(draft: BacktestDraft) -> BacktestConfig:
         timeframes=TimeframeConfig(primary=draft.primary_tf, context=list(draft.context_tfs)),
         strategy=strategy,
         prop_firm=prop,
-        execution=ExecutionConfig(
-            fill=draft.fill_model,
-            initial_balance=draft.initial_balance,
-            allow_entries_outside_session=False,
-            allow_exits_outside_session=True,
-            daily_reset=daily_reset,
-        ),
+        execution=execution,
         meta={"created_at": datetime.utcnow().isoformat() + "Z"},
     )

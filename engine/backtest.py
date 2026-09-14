@@ -11,6 +11,16 @@ from engine.data_loader import load_bars
 from engine.instruments import load_instrument_profile
 from engine.models import BacktestConfig, BacktestResult, InstrumentProfile
 from engine.mtf import align_context_to_primary, resample_bars
+from engine.execution_sltp import (
+    OpenTrade,
+    close_trade_pnl,
+    enrich_execution_from_pack,
+    intrabar_exit,
+    risk_budget_usd,
+    size_units_for_risk,
+    swing_stops_long,
+    swing_stops_short,
+)
 from engine.prop_firm import PropState, evaluate_prop_backtest, load_prop_pack, merge_prop_config
 from engine.prop_usd import UsdBarGate, resolve_usd_spec
 from engine.session import is_in_session, session_day_key
@@ -89,10 +99,18 @@ def run_backtest(
 
     signals = build_signals(config.strategy, primary, context_frames, context_idx)
 
+    exec_cfg = enrich_execution_from_pack(
+        config.execution,
+        prop.pack_id if prop.enabled else None,
+    )
+    use_sltp = exec_cfg.mode == "sltp_risk" and exec_cfg.risk_per_trade_usd is not None
+
     balance = config.execution.initial_balance
     equity = balance
     position = 0.0
     entry_price = 0.0
+    open_trade: OpenTrade | None = None
+    trades_today: dict[str, int] = {}
     peak = balance
     max_dd = 0.0
 
@@ -128,8 +146,13 @@ def run_backtest(
         o, h, l, c = float(row["open"]), float(row["high"]), float(row["low"]), float(row["close"])
         fill_price = o if config.execution.fill == "next_bar_open" and i > 0 else c
 
-        if profile.asset_class.value == "crypto_perp" and position != 0 and i % 8 == 0:
-            funding = position * c * profile.contract_size * (profile.funding_bps_per_8h / 10000)
+        in_position = open_trade is not None if use_sltp else position != 0
+        if profile.asset_class.value == "crypto_perp" and in_position and i % 8 == 0:
+            if use_sltp and open_trade:
+                notional = open_trade.size_units * c * profile.contract_size
+                funding = open_trade.direction * notional * (profile.funding_bps_per_8h / 10000)
+            else:
+                funding = position * c * profile.contract_size * (profile.funding_bps_per_8h / 10000)
             equity -= funding
 
         sig = int(signals.iloc[i - 1]) if i > 0 else 0
@@ -143,12 +166,93 @@ def run_backtest(
             can_enter = True
 
         target_dir = sig
-        if not can_enter and position == 0:
+        if not can_enter and not in_position:
             target_dir = 0
 
         can_enter_usd = usd_gate.can_enter() if usd_spec else True
 
-        if i > 0:
+        if use_sltp and i > 0 and open_trade is not None:
+            hit = intrabar_exit(open_trade, h, l)
+            if hit:
+                exit_price, reason = hit
+                pnl = close_trade_pnl(
+                    open_trade,
+                    exit_price,
+                    profile.contract_size,
+                    profile.spread_points,
+                    profile.point_value,
+                )
+                fee = abs(
+                    exit_price * open_trade.size_units * profile.contract_size * profile.fee_bps / 10000
+                )
+                equity += pnl - fee
+                risk_usd = abs(open_trade.entry_price - open_trade.stop_loss) * open_trade.size_units * profile.contract_size
+                trades.append(
+                    {
+                        "exit_time": ts,
+                        "pnl": pnl - fee,
+                        "side": "long" if open_trade.direction > 0 else "short",
+                        "exit_reason": reason,
+                        "r_multiple": (pnl - fee) / risk_usd if risk_usd else 0.0,
+                    }
+                )
+                open_trade = None
+
+        if use_sltp:
+            if i > 0 and open_trade is None and target_dir != 0 and can_enter and can_enter_usd:
+                max_td = exec_cfg.max_trades_per_day
+                if max_td is not None and trades_today.get(dk, 0) >= max_td:
+                    target_dir = 0
+                if target_dir != 0:
+                    signal_bar = i - 1
+                    entry_px = fill_price
+                    if target_dir > 0:
+                        stops = swing_stops_long(
+                            primary["low"],
+                            signal_bar,
+                            entry_px,
+                            exec_cfg.swing_lookback,
+                            exec_cfg.risk_reward_ratio,
+                        )
+                    else:
+                        stops = swing_stops_short(
+                            primary["high"],
+                            signal_bar,
+                            entry_px,
+                            exec_cfg.swing_lookback,
+                            exec_cfg.risk_reward_ratio,
+                        )
+                    if stops:
+                        sl, tp, risk_dist = stops
+                        daily_cap = usd_spec.daily_loss_limit_usd if usd_spec else None
+                        budget = risk_budget_usd(
+                            exec_cfg.risk_per_trade_usd or 0.0,
+                            usd_gate.day_start_equity,
+                            equity,
+                            daily_cap,
+                        )
+                        size_u = size_units_for_risk(
+                            budget,
+                            risk_dist,
+                            profile.contract_size,
+                            equity,
+                            exec_cfg.max_equity_fraction,
+                        )
+                        if size_u > 0:
+                            fee = abs(
+                                entry_px * size_u * profile.contract_size * profile.fee_bps / 10000
+                            )
+                            equity -= fee
+                            open_trade = OpenTrade(
+                                direction=target_dir,
+                                entry_price=entry_px,
+                                size_units=size_u,
+                                stop_loss=sl,
+                                take_profit=tp,
+                                entry_time=ts,
+                            )
+                            trades_today[dk] = trades_today.get(dk, 0) + 1
+        elif i > 0:
             if position == 0 and target_dir != 0 and can_enter and can_enter_usd:
                 position = target_dir
                 entry_price = fill_price
@@ -174,7 +278,15 @@ def run_backtest(
                 if position != 0:
                     entry_price = fill_price
 
-        if position != 0:
+        if use_sltp and open_trade is not None:
+            unrealized = (
+                (c - open_trade.entry_price)
+                * open_trade.direction
+                * open_trade.size_units
+                * profile.contract_size
+            )
+            mark = equity + unrealized
+        elif not use_sltp and position != 0:
             unrealized = (c - entry_price) * position * profile.contract_size
             mark = equity + unrealized
         else:
@@ -202,7 +314,26 @@ def run_backtest(
         equity_rows.append({"timestamp": ts, "equity": mark, "drawdown_pct": dd})
         prev_mark = mark
 
-    if position != 0:
+    if use_sltp and open_trade is not None and exec_cfg.finalize_open_at_end:
+        last = primary.iloc[-1]
+        c = float(last["close"])
+        pnl = close_trade_pnl(
+            open_trade,
+            c,
+            profile.contract_size,
+            profile.spread_points,
+            profile.point_value,
+        )
+        equity += pnl
+        trades.append(
+            {
+                "exit_time": last["timestamp"],
+                "pnl": pnl,
+                "side": "long" if open_trade.direction > 0 else "short",
+                "exit_reason": "finalize",
+            }
+        )
+    elif not use_sltp and position != 0:
         last = primary.iloc[-1]
         c = float(last["close"])
         pnl = (c - entry_price) * position * profile.contract_size
@@ -251,6 +382,7 @@ def run_backtest(
         worst_daily_loss_pct=prop_state.worst_daily_loss_pct,
         trading_days=prop_state.trading_days,
         equity_final=equity_final,
+        execution_mode=exec_cfg.mode if use_sltp else "signal_flip",
     )
 
     trades_df = pd.DataFrame(trades)
