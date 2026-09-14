@@ -18,7 +18,12 @@ RULE_TEMPLATES_PATH = ROOT / "configs" / "rule_templates.yaml"
 def list_instruments_for_asset_class(asset_class: str) -> list[InstrumentId]:
     out: list[InstrumentId] = []
     for path in sorted(INSTRUMENTS_DIR.glob("*.yaml")):
-        raw = yaml.safe_load(path.read_text()) or {}
+        if path.name.startswith("."):
+            continue
+        try:
+            raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except (UnicodeDecodeError, yaml.YAMLError, OSError):
+            continue
         if raw.get("asset_class") != asset_class:
             continue
         try:
