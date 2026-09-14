@@ -38,5 +38,6 @@ def test_study_summary_includes_trade_count():
     text = study_result_summary("abc123", payload, "BTC_PERP", "30m")
     assert "17 trades" in text
     assert "9W/8L" in text
+    assert "WR 55%" in text
     assert "4.50%" in text
     assert "sig L100/S80" in text

@@ -11,10 +11,11 @@ def _pnl_trades(br: BacktestResult, *, pnl_decimals: int = 2) -> str:
     base = f"{br.net_pnl_pct:+.{pnl_decimals}f}% · {br.trade_count} trades"
     if br.trade_count:
         if br.wins + br.losses == br.trade_count:
-            base += f" ({br.wins}W/{br.losses}L)"
+            base += f" ({br.wins}W/{br.losses}L"
         else:
             est_w = int(round(br.trade_count * br.win_rate / 100))
-            base += f" (~{est_w}W/{br.trade_count - est_w}L)"
+            base += f" (~{est_w}W/{br.trade_count - est_w}L"
+        base += f" · WR {br.win_rate:.0f}%)"
     if br.trade_count and br.trading_days:
         base += f" · {br.trading_days}d w/ exits"
     return base
