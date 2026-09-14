@@ -1,37 +1,38 @@
-# Telegram wizard (v1.5)
+# Telegram wizard
 
-Full **New backtest** wizard — no Quick playbook on Home.
+Full **New backtest** wizard (no Quick playbook on Home).
 
 ## Steps
 
-1. Asset class → Instrument (shows Supabase coverage when configured)
-2. Date range (6mo / 1y / max available / custom)
+1. Asset class → Instrument (from `configs/instruments/*.yaml` catalog)
+2. Date range
 3. Session + toggles
-4. Primary TF (15m, **30m**, 1h, …) + context (1h / 4h / 1d)
-5. Strategy: **Preset** (Cipher_B, EMA, RSI) or **Custom** indicators
-6. Prop: **None**, **Generic** (% sliders), **FTMO-like** only
+4. Primary TF (15m, 30m, 1h, 4h, 1m, 5m) + context (1h / 4h / 1d)
+5. Strategy — **Preset** (Cipher_B, EMA, RSI) or **Custom (guided)**
+6. Prop — None / Generic / **Custom %** / **From template** / FTMO-like
 7. Balance → Review → Run or Save as preset
+
+## Custom strategy (guided)
+
+- Add indicators from `configs/indicators.yaml` (RSI, EMA, ATR, MACD, WaveTrend, Bressert) on primary or context TF.
+- **Rule templates** from `configs/rule_templates.yaml` apply DSL `long_when` / `short_when`.
+- Advanced: send DSL text for long/short (see `engine/rules.py`).
+
+Refs examples: `primary_RSI_value`, `primary_close`, `cross_above(primary_WAVETREND_wt, primary_WAVETREND_signal)`.
+
+## Custom prop (%)
+
+- **Custom %** or **From template** loads YAML from `configs/prop_firms/`, then adjust daily / max DD / profit target / min days.
+- Hola packs appear in templates (~% rules); full USD/consistency in a later engine phase.
 
 ## 30m data
 
-Coinbase has no native 30m candles. The engine loads **15m** from Supabase/CSV and **resamples to 30m** for the backtest.
+Resampled from 15m in Supabase/CSV (Coinbase has no native 30m).
 
-## Hola Prime packs (advanced — not in wizard)
+## Presets
 
-`holaprime_10k` and `holaprime_1step_10k` live under `configs/prop_firms/` but are **not** on the Prop keyboard until Phase B (USD caps, consistency, SL/TP parity).
+**My presets** stores full `BacktestConfig` YAML. Examples: `configs/examples/cipher_b_holaprime_1step_30m.yaml`.
 
-**Use today:**
+## Back
 
-1. Copy an example such as [`configs/examples/cipher_b_holaprime_1step_30m.yaml`](../configs/examples/cipher_b_holaprime_1step_30m.yaml)
-2. Run locally with CLI, or edit and **Save as preset** after a wizard run (paste fields manually into a saved preset workflow), or queue via preset name once stored in SQLite
-3. Admin: `/admin` lists prop packs and notes Hola = preset-only
-
-Prop evaluation for Hola YAML uses **approximate % rules** from the pack file, not full Hola Prime folder simulation.
-
-## Cipher B
-
-Preset **cipher_b** = WaveTrend cross + RSI + Bressert (see `engine/strategy.py`). Recommended primary **30m**.
-
-## Phase B (later)
-
-Hola packs return to wizard Prop menu when engine supports USD intraday rules, consistency reporting, and optional SL/TP execution.
+**« Back** uses a step stack (partial); **Cancel** returns home.

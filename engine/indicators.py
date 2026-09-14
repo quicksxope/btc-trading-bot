@@ -1,8 +1,11 @@
-"""Indicator registry."""
+"""Indicator registry with multi-output support."""
 
 from __future__ import annotations
 
 import pandas as pd
+
+from engine.bressert import bressert_dss
+from engine.wavetrend import wavetrend
 
 
 def ema(series: pd.Series, period: int) -> pd.Series:
@@ -37,15 +40,51 @@ def macd(series: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9):
     return macd_line, signal_line, hist
 
 
-REGISTRY = {
-    "EMA": lambda df, p: ema(df["close"], int(p.get("period", 20))),
-    "RSI": lambda df, p: rsi(df["close"], int(p.get("period", 14))),
-    "ATR": lambda df, p: atr(df, int(p.get("period", 14))),
-}
+def compute_indicator_outputs(name: str, df: pd.DataFrame, params: dict) -> dict[str, pd.Series]:
+    """Return named output series for DSL refs (e.g. primary_RSI_value)."""
+    key = name.upper()
+    p = params or {}
+    if key == "EMA":
+        return {"value": ema(df["close"], int(p.get("period", 20)))}
+    if key == "RSI":
+        return {"value": rsi(df["close"], int(p.get("period", 14)))}
+    if key == "ATR":
+        return {"value": atr(df, int(p.get("period", 14)))}
+    if key == "MACD":
+        m, s, h = macd(
+            df["close"],
+            int(p.get("fast", 12)),
+            int(p.get("slow", 26)),
+            int(p.get("signal", 9)),
+        )
+        return {"macd": m, "signal": s, "hist": h}
+    if key == "WAVETREND":
+        wt, sig = wavetrend(
+            df["high"],
+            df["low"],
+            df["close"],
+            int(p.get("channel_length", 9)),
+            int(p.get("average_length", 12)),
+            int(p.get("signal_length", 4)),
+        )
+        return {"wt": wt, "signal": sig}
+    if key == "BRESSERT":
+        dss, sig = bressert_dss(
+            df["high"],
+            df["low"],
+            df["close"],
+            int(p.get("length", 8)),
+            int(p.get("smoothing", 3)),
+            int(p.get("signal_smoothing", 3)),
+        )
+        return {"dss": dss, "signal": sig}
+    raise ValueError(f"Unknown indicator: {name}")
 
 
 def compute_indicator(name: str, df: pd.DataFrame, params: dict) -> pd.Series:
-    key = name.upper()
-    if key not in REGISTRY:
-        raise ValueError(f"Unknown indicator: {name}")
-    return REGISTRY[key](df, params)
+    outputs = compute_indicator_outputs(name, df, params)
+    from engine.catalog import indicator_meta
+
+    meta = indicator_meta(name.upper())
+    out_key = meta.get("default_output") or next(iter(outputs))
+    return outputs[out_key]

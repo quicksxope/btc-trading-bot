@@ -39,20 +39,21 @@ def asset_class_keyboard() -> InlineKeyboardMarkup:
 
 
 def instrument_keyboard(draft: BacktestDraft) -> InlineKeyboardMarkup:
+    from engine.catalog import list_instruments_for_asset_class
+
     rows = []
-    if draft.asset_class == "crypto_perp":
-        rows = [
-            [
-                InlineKeyboardButton(text="BTC_PERP", callback_data="wiz:inst:BTC_PERP"),
-                InlineKeyboardButton(text="ETH_PERP", callback_data="wiz:inst:ETH_PERP"),
-            ]
-        ]
-    else:
-        rows = [
-            [InlineKeyboardButton(text="SPX500_CFD", callback_data="wiz:inst:SPX500_CFD")],
-            [InlineKeyboardButton(text="NASDAQ_CFD", callback_data="wiz:inst:NASDAQ_CFD")],
-            [InlineKeyboardButton(text="XAUUSD_CFD", callback_data="wiz:inst:XAUUSD_CFD")],
-        ]
+    if draft.asset_class:
+        insts = list_instruments_for_asset_class(draft.asset_class)
+        row: list[InlineKeyboardButton] = []
+        for inst in insts:
+            row.append(
+                InlineKeyboardButton(text=inst.value, callback_data=f"wiz:inst:{inst.value}")
+            )
+            if len(row) == 2:
+                rows.append(row)
+                row = []
+        if row:
+            rows.append(row)
     rows.append(nav_row())
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -109,6 +110,7 @@ def primary_tf_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text="15m", callback_data="wiz:ptf:15m"),
                 InlineKeyboardButton(text="30m", callback_data="wiz:ptf:30m"),
                 InlineKeyboardButton(text="1h", callback_data="wiz:ptf:1h"),
+                InlineKeyboardButton(text="4h", callback_data="wiz:ptf:4h"),
             ],
             [
                 InlineKeyboardButton(text="1m", callback_data="wiz:ptf:1m"),
@@ -179,7 +181,45 @@ def prop_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [InlineKeyboardButton(text="None (PnL only)", callback_data="wiz:prop:none")],
             [InlineKeyboardButton(text="Generic challenge", callback_data="wiz:prop:generic")],
+            [InlineKeyboardButton(text="Custom %", callback_data="wiz:prop:custom")],
+            [InlineKeyboardButton(text="From template…", callback_data="wiz:prop:templates")],
             [InlineKeyboardButton(text="FTMO-like pack", callback_data="wiz:prop:ftmo_like")],
+            nav_row(),
+        ]
+    )
+
+
+def prop_template_keyboard() -> InlineKeyboardMarkup:
+    from engine.catalog import list_prop_template_ids
+
+    rows = [
+        [InlineKeyboardButton(text=pid, callback_data=f"wiz:prop:load:{pid}")]
+        for pid in list_prop_template_ids()
+    ]
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def prop_custom_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Daily 5%", callback_data="wiz:propp:d5"),
+                InlineKeyboardButton(text="Daily 3%", callback_data="wiz:propp:d3"),
+            ],
+            [
+                InlineKeyboardButton(text="Max DD 10%", callback_data="wiz:propp:dd10"),
+                InlineKeyboardButton(text="Max DD 6%", callback_data="wiz:propp:dd6"),
+            ],
+            [
+                InlineKeyboardButton(text="Profit tgt 10%", callback_data="wiz:propp:pt10"),
+                InlineKeyboardButton(text="Clear target", callback_data="wiz:propp:pt0"),
+            ],
+            [
+                InlineKeyboardButton(text="Min days 2", callback_data="wiz:propp:min2"),
+                InlineKeyboardButton(text="Min days 4", callback_data="wiz:propp:min4"),
+            ],
+            [InlineKeyboardButton(text="Continue »", callback_data="wiz:propp:done")],
             nav_row(),
         ]
     )

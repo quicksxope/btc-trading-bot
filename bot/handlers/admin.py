@@ -47,6 +47,13 @@ async def data_status(message: Message, settings: Settings) -> None:
             f"{k} ({src}): {v.get('available_from')} .. {v.get('available_to')} [{v.get('data_symbol')}]"
         )
     lines.append("")
+    lines.append("<b>Indicators</b> (configs/indicators.yaml)")
+    from engine.catalog import indicator_ids, indicator_meta
+
+    for iid in indicator_ids():
+        meta = indicator_meta(iid)
+        lines.append(f"• {iid}: {meta.get('label', iid)}")
+    lines.append("")
     lines.append("<b>Prop packs</b> (configs/prop_firms/)")
     for path in sorted(PACKS_DIR.glob("*.yaml")):
         raw = yaml.safe_load(path.read_text()) or {}

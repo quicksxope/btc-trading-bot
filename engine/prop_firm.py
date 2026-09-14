@@ -48,19 +48,24 @@ def load_prop_pack(pack_id: str) -> PropPack:
 
 
 def merge_prop_config(config: PropFirmConfig) -> PropFirmConfig:
+    """Template pack defaults merged with user overrides on config."""
     if not config.enabled:
         return config
     pack = load_prop_pack(config.pack_id)
-    if config.pack_id != "generic":
-        return PropFirmConfig(
-            enabled=True,
-            pack_id=config.pack_id,
-            daily_loss_pct=pack.daily_loss_pct,
-            max_drawdown_pct=pack.max_drawdown_pct,
-            profit_target_pct=pack.profit_target_pct,
-            min_trading_days=pack.min_trading_days,
-        )
-    return config
+
+    def pick(user_val, pack_val):
+        if config.pack_id == "generic":
+            return user_val
+        return user_val if user_val is not None else pack_val
+
+    return PropFirmConfig(
+        enabled=True,
+        pack_id=config.pack_id,
+        daily_loss_pct=float(pick(config.daily_loss_pct, pack.daily_loss_pct)),
+        max_drawdown_pct=float(pick(config.max_drawdown_pct, pack.max_drawdown_pct)),
+        profit_target_pct=pick(config.profit_target_pct, pack.profit_target_pct),
+        min_trading_days=pick(config.min_trading_days, pack.min_trading_days),
+    )
 
 
 def instrument_allowed(pack_id: str, instrument: InstrumentId) -> tuple[bool, str]:

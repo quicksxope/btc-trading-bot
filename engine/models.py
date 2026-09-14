@@ -53,11 +53,17 @@ class TimeframeConfig(BaseModel):
     context: list[str] = Field(default_factory=list)
 
 
+class CustomRulesV2(BaseModel):
+    long_when: str = ""
+    short_when: str = ""
+
+
 class StrategyConfig(BaseModel):
     mode: Literal["preset", "custom"] = "preset"
     preset: str | None = "trend_ema_cross"
     custom_indicators: list[dict[str, Any]] = Field(default_factory=list)
     custom_rule: str = ""
+    custom_rules_v2: CustomRulesV2 | None = None
 
 
 class PropFirmConfig(BaseModel):

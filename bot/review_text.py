@@ -26,7 +26,11 @@ def review_summary_html(draft: BacktestDraft) -> str:
                 "<i>Hint: Cipher B works best on 30m (resampled from 15m in DB).</i>"
             )
     elif draft.strategy_mode == "custom":
-        lines.append("Strategy: custom indicators + rule")
+        lines.append(f"Strategy: custom ({len(draft.custom_indicators)} indicators)")
+        if draft.custom_long_when:
+            lines.append(f"Long: {escape(draft.custom_long_when[:80])}")
+        if draft.custom_short_when:
+            lines.append(f"Short: {escape(draft.custom_short_when[:80])}")
 
     if draft.prop_pack in (None, "none"):
         lines.append("Prop: off (PnL only)")
@@ -38,9 +42,12 @@ def review_summary_html(draft: BacktestDraft) -> str:
                 "(USD caps, consistency, SL/TP). Use saved preset from examples.</i>"
             )
         elif draft.prop_daily_loss_pct is not None and draft.prop_max_dd_pct is not None:
-            lines.append(
-                f"Limits: daily {draft.prop_daily_loss_pct:g}% / max DD {draft.prop_max_dd_pct:g}%"
-            )
+            extra = f"daily {draft.prop_daily_loss_pct:g}% / max DD {draft.prop_max_dd_pct:g}%"
+            if draft.prop_profit_target_pct is not None:
+                extra += f" / target {draft.prop_profit_target_pct:g}%"
+            if draft.prop_min_trading_days is not None:
+                extra += f" / min days {draft.prop_min_trading_days}"
+            lines.append(f"Limits: {extra}")
 
     lines.append(f"Balance: ${draft.initial_balance:,.0f}")
     lines.append(f"Fill: {escape(draft.fill_model)}")

@@ -10,6 +10,7 @@ import pandas as pd
 from engine.bressert import bressert_dss
 from engine.indicators import compute_indicator, ema, rsi
 from engine.models import StrategyConfig
+from engine.rules import RuleSet, signals_from_rules
 from engine.wavetrend import wavetrend
 
 
@@ -102,6 +103,20 @@ def build_signals(
 ) -> pd.Series:
     if config.mode == "preset":
         return preset_signals(config.preset or "trend_ema_cross", primary)
+
+    if config.custom_rules_v2 and (
+        config.custom_rules_v2.long_when or config.custom_rules_v2.short_when
+    ):
+        return signals_from_rules(
+            RuleSet(
+                long_when=config.custom_rules_v2.long_when,
+                short_when=config.custom_rules_v2.short_when,
+            ),
+            primary,
+            context_frames,
+            context_idx,
+            config.custom_indicators,
+        )
 
     ind_series: dict[str, pd.Series] = {}
     for spec in config.custom_indicators:

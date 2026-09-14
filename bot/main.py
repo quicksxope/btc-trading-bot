@@ -11,7 +11,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from bot.handlers import admin, home, jobs, presets, wizard
+from bot.handlers import admin, home, jobs, presets, strategy_builder, wizard
 from bot.menu import register_user_commands
 from bot.middleware import ContextMiddleware
 from bot.notifier import notifier_loop
@@ -40,6 +40,7 @@ async def main_async() -> None:
     dp.callback_query.middleware(ContextMiddleware(db, settings))
 
     dp.include_router(home.router)
+    dp.include_router(strategy_builder.router)
     dp.include_router(wizard.router)
     dp.include_router(presets.router)
     dp.include_router(jobs.router)

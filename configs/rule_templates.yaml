@@ -1,0 +1,28 @@
+templates:
+  rsi_oversold_long:
+    label: "Long if RSI < 30"
+    long_when: "primary_RSI_value < 30"
+    short_when: "primary_RSI_value > 70"
+    requires_indicators:
+      - { name: RSI, timeframe: primary, params: { period: 14 } }
+
+  rsi_mid_long:
+    label: "Long if RSI > 50"
+    long_when: "primary_RSI_value > 50"
+    short_when: "primary_RSI_value < 50"
+    requires_indicators:
+      - { name: RSI, timeframe: primary, params: { period: 14 } }
+
+  wt_cross_long:
+    label: "Long on WT cross up"
+    long_when: "cross_above(primary_WAVETREND_wt, primary_WAVETREND_signal)"
+    short_when: "cross_below(primary_WAVETREND_wt, primary_WAVETREND_signal)"
+    requires_indicators:
+      - { name: WAVETREND, timeframe: primary, params: {} }
+
+  ema_trend_long:
+    label: "Long if close > EMA20"
+    long_when: "primary_close > primary_EMA_value"
+    short_when: "primary_close < primary_EMA_value"
+    requires_indicators:
+      - { name: EMA, timeframe: primary, params: { period: 20 } }

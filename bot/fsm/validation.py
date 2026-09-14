@@ -41,9 +41,13 @@ class BacktestDraft:
     strategy_preset: str | None = None
     custom_indicators: list[dict] = field(default_factory=list)
     custom_rule: str | None = None
+    custom_long_when: str = ""
+    custom_short_when: str = ""
     prop_pack: str | None = "generic"
     prop_daily_loss_pct: float | None = 5.0
     prop_max_dd_pct: float | None = 10.0
+    prop_profit_target_pct: float | None = None
+    prop_min_trading_days: int | None = None
     initial_balance: float = 100_000.0
     fill_model: str = "next_bar_open"
 
@@ -74,13 +78,9 @@ class ValidationError(Exception):
 
 
 def _instruments_for_class(ac: AssetClassChoice) -> set[InstrumentId]:
-    if ac == "crypto_perp":
-        return {InstrumentId.BTC_PERP, InstrumentId.ETH_PERP}
-    return {
-        InstrumentId.SPX500_CFD,
-        InstrumentId.NASDAQ_CFD,
-        InstrumentId.XAUUSD_CFD,
-    }
+    from engine.catalog import list_instruments_for_asset_class
+
+    return set(list_instruments_for_asset_class(ac))
 
 
 def validate_asset_class(draft: BacktestDraft) -> None:
@@ -138,8 +138,16 @@ def validate_strategy(draft: BacktestDraft) -> None:
     elif draft.strategy_mode == "custom":
         if not draft.custom_indicators:
             raise ValidationError("Tambah minimal satu indicator.", "strategy_custom")
-        if not draft.custom_rule:
+        has_v2 = bool(draft.custom_long_when.strip() or draft.custom_short_when.strip())
+        if not draft.custom_rule and not has_v2:
             raise ValidationError("Definisikan rule entry.", "strategy_custom")
+        if has_v2:
+            from engine.rules import validate_expression
+
+            if draft.custom_long_when.strip():
+                validate_expression(draft.custom_long_when.strip())
+            if draft.custom_short_when.strip():
+                validate_expression(draft.custom_short_when.strip())
     else:
         raise ValidationError("Pilih mode strategy.", "strategy_mode")
 
@@ -185,15 +193,26 @@ def draft_to_config(draft: BacktestDraft) -> BacktestConfig:
             pack_id=draft.prop_pack or "generic",
             daily_loss_pct=draft.prop_daily_loss_pct or 5.0,
             max_drawdown_pct=draft.prop_max_dd_pct or 10.0,
+            profit_target_pct=draft.prop_profit_target_pct,
+            min_trading_days=draft.prop_min_trading_days,
         )
 
     if draft.strategy_mode == "preset":
         strategy = StrategyConfig(mode="preset", preset=draft.strategy_preset)
     else:
+        from engine.models import CustomRulesV2
+
+        rules_v2 = None
+        if draft.custom_long_when.strip() or draft.custom_short_when.strip():
+            rules_v2 = CustomRulesV2(
+                long_when=draft.custom_long_when.strip(),
+                short_when=draft.custom_short_when.strip(),
+            )
         strategy = StrategyConfig(
             mode="custom",
             custom_indicators=draft.custom_indicators,
             custom_rule=draft.custom_rule or "",
+            custom_rules_v2=rules_v2,
         )
 
     daily_reset = "utc" if draft.prop_daily_reset_utc else "session"
