@@ -22,7 +22,7 @@ Prop templates may set `execution_defaults`:
 
 - Swing high/low stop (`swing_lookback`)
 - Take profit at `risk_reward_ratio ×` stop distance
-- Position size from `risk_per_trade_usd` (capped by equity fraction & remaining daily loss budget)
+- Position size from `risk_per_trade_usd`, capped at **max prop max-loss / 10** (e.g. $3k MLL → $300/trade max), then by equity fraction & remaining daily loss budget
 - Optional `max_trades_per_day`
 - Exits on SL/TP intrabar (SL first if both hit)
 

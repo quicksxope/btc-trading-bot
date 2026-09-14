@@ -3,12 +3,13 @@
 import pandas as pd
 
 from engine.execution_sltp import (
+    capped_risk_per_trade_usd,
     enrich_execution_from_pack,
     intrabar_exit,
     size_units_for_risk,
     swing_stops_long,
 )
-from engine.models import ExecutionConfig
+from engine.models import ExecutionConfig, PropFirmConfig
 from engine.execution_sltp import OpenTrade
 
 
@@ -30,6 +31,17 @@ def test_intrabar_sl_first():
 def test_size_units_for_risk():
     size = size_units_for_risk(200.0, 10.0, 1.0, 10000.0, 0.99)
     assert abs(size - 20.0) < 1e-6
+
+
+def test_capped_risk_per_trade_one_tenth_max_loss():
+    prop = PropFirmConfig(
+        enabled=True,
+        pack_id="holaprime_1step_50k",
+        daily_loss_pct=3.0,
+        max_drawdown_pct=6.0,
+    )
+    assert capped_risk_per_trade_usd(1000.0, prop, 50_000.0) == 300.0
+    assert capped_risk_per_trade_usd(200.0, prop, 50_000.0) == 200.0
 
 
 def test_enrich_from_hola_pack():

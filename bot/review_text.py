@@ -71,11 +71,31 @@ def review_summary_html(draft: BacktestDraft) -> str:
             lines.append(f"Engine limits: {extra}")
         exec_defaults = pack.execution_defaults or {}
         if exec_defaults.get("mode") == "sltp_risk":
+            from engine.execution_sltp import capped_risk_per_trade_usd
+            from engine.models import PropFirmConfig
+
             rr = draft.execution_risk_reward_ratio
             if rr is None:
                 rr = float(exec_defaults.get("risk_reward_ratio", 2.0))
+            ref_risk = (pack.reference_usd or {}).get("risk_per_trade")
+            tpl_risk = float(
+                ref_risk
+                or (exec_defaults.get("risk_per_trade_usd") or 0)
+            )
+            prop_cfg = PropFirmConfig(
+                enabled=True,
+                pack_id=draft.prop_pack or "generic",
+                daily_loss_pct=draft.prop_daily_loss_pct or pack.daily_loss_pct,
+                max_drawdown_pct=draft.prop_max_dd_pct or pack.max_drawdown_pct,
+            )
+            eff_risk = capped_risk_per_trade_usd(
+                tpl_risk, prop_cfg, draft.initial_balance
+            )
+            risk_line = f"risk/trade ≤ ${eff_risk:,.0f}"
+            if eff_risk + 1e-6 < tpl_risk:
+                risk_line += f" (cap 1/10 max loss; template ${tpl_risk:,.0f})"
             lines.append(
-                f"Execution: SL/TP swing · risk/trade from template · R:R <b>1:{rr:g}</b>"
+                f"Execution: SL/TP swing · {risk_line} · R:R <b>1:{rr:g}</b>"
             )
         elif pack.engine == "usd":
             lines.append("<i>USD prop engine (no SL/TP template on this pack).</i>")

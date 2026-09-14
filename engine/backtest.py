@@ -17,6 +17,7 @@ from engine.execution_sltp import (
     enrich_execution_from_pack,
     intrabar_exit,
     risk_budget_usd,
+    capped_risk_per_trade_usd,
     size_units_for_risk,
     swing_stops_long,
     swing_stops_short,
@@ -223,8 +224,15 @@ def simulate_backtest(
                     if stops:
                         sl, tp, risk_dist = stops
                         daily_cap = usd_spec.daily_loss_limit_usd if usd_spec else None
+                        base_risk = exec_cfg.risk_per_trade_usd or 0.0
+                        if prop.enabled:
+                            base_risk = capped_risk_per_trade_usd(
+                                base_risk,
+                                prop,
+                                config.execution.initial_balance,
+                            )
                         budget = risk_budget_usd(
-                            exec_cfg.risk_per_trade_usd or 0.0,
+                            base_risk,
                             usd_gate.day_start_equity,
                             equity,
                             daily_cap,

@@ -7,8 +7,11 @@ from datetime import datetime
 
 import pandas as pd
 
-from engine.models import ExecutionConfig
+from engine.models import ExecutionConfig, PropFirmConfig
 from engine.prop_firm import load_prop_pack
+
+# Max $ loss at SL per trade ≤ (prop max account loss) / 10
+MAX_LOSS_PER_TRADE_DIVISOR = 10
 
 
 @dataclass
@@ -84,6 +87,34 @@ def size_units_for_risk(
     raw = risk_usd / (risk_distance * contract_size)
     cap = (equity * max_equity_fraction) / max(risk_distance * contract_size, 1e-12)
     return max(0.0, min(raw, cap))
+
+
+def max_account_loss_usd(prop: PropFirmConfig, initial_balance: float) -> float | None:
+    """Prop firm max loss budget in USD (MLL / max DD), for risk caps."""
+    if not prop.enabled:
+        return None
+    from engine.prop.usd import pack_uses_usd_engine, resolve_usd_spec
+
+    if pack_uses_usd_engine(prop.pack_id):
+        spec = resolve_usd_spec(prop, initial_balance)
+        if spec is not None:
+            return spec.max_loss_limit_usd
+    return initial_balance * (prop.max_drawdown_pct / 100.0)
+
+
+def capped_risk_per_trade_usd(
+    configured_risk_usd: float,
+    prop: PropFirmConfig,
+    initial_balance: float,
+) -> float:
+    """Apply 1:10 rule vs prop max loss (min with template risk_per_trade)."""
+    if configured_risk_usd <= 0 or not prop.enabled:
+        return configured_risk_usd
+    max_loss = max_account_loss_usd(prop, initial_balance)
+    if max_loss is None or max_loss <= 0:
+        return configured_risk_usd
+    ceiling = max_loss / MAX_LOSS_PER_TRADE_DIVISOR
+    return min(configured_risk_usd, ceiling)
 
 
 def risk_budget_usd(
