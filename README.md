@@ -44,12 +44,14 @@ backtest-bot
 
 ## Layout
 
-- `engine/` — backtest core
-- `bot/` — Telegram FSM wizard
+See **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for the full map. Short version:
+
+- `engine/` — backtest, `indicators/`, `presets/` (Cipher B), `prop/`
+- `bot/` — handlers + `keyboards/`
 - `worker/` — queue consumer
 - `storage/` — SQLite schema, templates
-- `configs/` — instruments, prop packs, data catalog
-- `jobs/` — per-job artifacts
+- `configs/` — instruments, prop packs, indicators, examples
+- `jobs/` — per-job artifacts (runtime)
 
 ## Data
 

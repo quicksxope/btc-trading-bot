@@ -4,72 +4,15 @@ from __future__ import annotations
 
 import re
 
-import numpy as np
 import pandas as pd
 
-from engine.bressert import bressert_dss
-from engine.indicators import compute_indicator, ema, rsi
+from engine.indicators import compute_indicator, ema
 from engine.models import StrategyConfig
+from engine.presets import cipher_b_signals, preset_signals
 from engine.rules import RuleSet, signals_from_rules
-from engine.wavetrend import wavetrend
 
-
-def _crossed_above(line: pd.Series, signal: pd.Series, i: int) -> bool:
-    if i < 1:
-        return False
-    return float(line.iloc[i - 1]) <= float(signal.iloc[i - 1]) and float(line.iloc[i]) > float(
-        signal.iloc[i]
-    )
-
-
-def _crossed_below(line: pd.Series, signal: pd.Series, i: int) -> bool:
-    if i < 1:
-        return False
-    return float(line.iloc[i - 1]) >= float(signal.iloc[i - 1]) and float(line.iloc[i]) < float(
-        signal.iloc[i]
-    )
-
-
-def cipher_b_signals(primary: pd.DataFrame) -> pd.Series:
-    """WaveTrend cross + RSI + Bressert (Hola Prime folder defaults)."""
-    high, low, close = primary["high"], primary["low"], primary["close"]
-    wt, wt_sig = wavetrend(high, low, close, 9, 12, 4)
-    r = rsi(close, 14)
-    dss, dss_sig = bressert_dss(high, low, close, 8, 3, 3)
-
-    n = len(primary)
-    out = np.zeros(n, dtype=int)
-    state = 0
-    for i in range(1, n):
-        long_cross = _crossed_above(wt, wt_sig, i)
-        short_cross = _crossed_below(wt, wt_sig, i)
-        rsi_long = float(r.iloc[i]) > 50.0
-        rsi_short = float(r.iloc[i]) < 50.0
-        bressert_long = float(dss.iloc[i]) > float(dss_sig.iloc[i])
-        bressert_short = float(dss.iloc[i]) < float(dss_sig.iloc[i])
-        if long_cross and rsi_long and bressert_long:
-            state = 1
-        elif short_cross and rsi_short and bressert_short:
-            state = -1
-        out[i] = state
-    return pd.Series(out, index=primary.index)
-
-
-def preset_signals(name: str, primary: pd.DataFrame) -> pd.Series:
-    """1 long, -1 short, 0 flat."""
-    close = primary["close"]
-    if name == "trend_ema_cross":
-        fast = ema(close, 20)
-        slow = ema(close, 50)
-        sig = np.where(fast > slow, 1, np.where(fast < slow, -1, 0))
-        return pd.Series(sig, index=primary.index)
-    if name == "rsi_mean_revert":
-        r = rsi(close, 14)
-        sig = np.where(r < 30, 1, np.where(r > 70, -1, 0))
-        return pd.Series(sig, index=primary.index)
-    if name == "cipher_b":
-        return cipher_b_signals(primary)
-    raise ValueError(f"Unknown preset: {name}")
+# Re-export for tests and docs
+__all__ = ["build_signals", "cipher_b_signals", "preset_signals"]
 
 
 def _eval_simple_rule(rule: str, ctx: dict[str, float]) -> int:
@@ -140,7 +83,6 @@ def build_signals(
                 ctx[k.upper()] = float(s.iloc[i])
                 if k.upper() == "PRIMARY_RSI":
                     ctx["primary_RSI"] = float(s.iloc[i])
-        # EMA filter example on 4h
         if "4h" in context_frames and "4h" in context_idx:
             j = int(context_idx["4h"].iloc[i])
             if j >= 0:

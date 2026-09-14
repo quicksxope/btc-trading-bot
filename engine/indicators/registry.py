@@ -5,9 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from engine.bressert import bressert_dss
-from engine.structure import fibonacci_levels, liquidity_sweep
-from engine.wavetrend import wavetrend
+from engine.indicators.bressert import bressert_dss
+from engine.indicators.structure import fibonacci_levels, liquidity_sweep
+from engine.indicators.wavetrend import wavetrend
 
 
 def ema(series: pd.Series, period: int) -> pd.Series:

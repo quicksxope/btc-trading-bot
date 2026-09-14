@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from bot.keyboards import nav_row
+from bot.keyboards.wizard import nav_row
 from engine.catalog import indicator_ids
 
 

@@ -24,6 +24,18 @@ def test_validate_rsi_expression():
     validate_expression("primary_RSI_value < 30")
 
 
+def test_validate_cross_above_with_comma():
+    validate_expression("cross_above(primary_WAVETREND_wt, primary_WAVETREND_signal)")
+
+
+def test_validate_and_with_cross_templates():
+    expr = (
+        "(cross_above(primary_BRESSERT_dss, primary_BRESSERT_signal)) "
+        "and (primary_RSI_value < 30)"
+    )
+    validate_expression(expr)
+
+
 def test_signals_from_rsi_rule():
     primary = _sample_df(80)
     specs = [{"name": "RSI", "timeframe": "primary", "params": {"period": 14}}]

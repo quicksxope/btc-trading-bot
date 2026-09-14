@@ -9,8 +9,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from bot.formatting import bold, footer
 from bot.fsm.validation import BacktestDraft, study_mix_count
 from bot.handlers.wizard import _load_draft, _save_draft
-from bot.keyboards import nav_row, prop_keyboard
-from bot.keyboards_study import study_pool_keyboard
+from bot.keyboards import nav_row, prop_keyboard, study_pool_keyboard
 from bot.wizard_nav import push_step
 from storage.db import Database
 

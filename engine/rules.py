@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 _TOKEN = re.compile(
-    r"cross_above|cross_below|and|or|not|\>=|\<=|>|<|==|!=|[\w.]+|\(|\)"
+    r"cross_above|cross_below|and|or|not|\>=|\<=|>|<|==|!=|[\w.]+|\(|\)|,"
 )
 
 

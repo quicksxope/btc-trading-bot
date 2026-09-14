@@ -1,10 +1,5 @@
-from aiogram.fsm.state import State, StatesGroup
+"""Aiogram FSM states (re-export)."""
 
+from bot.fsm.wizard_states import WizardStates
 
-class WizardStates(StatesGroup):
-    active = State()
-    custom_date = State()
-    custom_balance = State()
-    custom_rule_long = State()
-    custom_rule_short = State()
-    preset_name = State()
+__all__ = ["WizardStates"]

@@ -23,6 +23,15 @@ def test_strategy_for_mix_and_rules():
     assert "RSI" in names and "WAVETREND" in names
 
 
+def test_strategy_for_mix_bressert_parses():
+    from engine.rules import validate_expression
+
+    strat = strategy_for_mix(("BRESSERT", "RSI"))
+    assert strat.custom_rules_v2
+    validate_expression(strat.custom_rules_v2.long_when)
+    validate_expression(strat.custom_rules_v2.short_when)
+
+
 def test_rank_study_rows_pass_first():
     rows = [
         {

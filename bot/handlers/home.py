@@ -14,8 +14,7 @@ from bot.formatting import bold, footer
 from bot.menu import help_message_html
 from bot.review_text import hola_result_disclaimer
 from bot.fsm.validation import BacktestDraft
-from bot.keyboards import asset_class_keyboard, home_keyboard
-from bot.keyboards_leaderboard import leaderboard_keyboard
+from bot.keyboards import asset_class_keyboard, home_keyboard, leaderboard_keyboard
 from engine.models import BacktestResult
 from storage import templates
 from storage.db import Database
