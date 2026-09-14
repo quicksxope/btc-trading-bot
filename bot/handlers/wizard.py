@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import uuid
 from datetime import date, timedelta
 from html import escape as html_escape
@@ -89,15 +90,20 @@ def _save_draft(data: dict, draft: BacktestDraft) -> dict:
 async def pick_asset(callback: CallbackQuery, state: FSMContext) -> None:
     from bot.wizard_nav import push_step
 
-    data = await state.get_data()
-    draft = _load_draft(data)
-    draft.asset_class = callback.data.split(":")[-1]  # type: ignore[assignment]
-    await state.update_data(**_save_draft(data, draft))
-    await push_step(state, "instrument")
-    await callback.message.edit_text(
-        bold("Step 2 — Instrument") + "\nPilih satu instrument." + footer(draft),
-        reply_markup=instrument_keyboard(draft),
-    )
+    try:
+        data = await state.get_data()
+        draft = _load_draft(data)
+        draft.asset_class = callback.data.split(":")[-1]  # type: ignore[assignment]
+        await state.update_data(**_save_draft(data, draft))
+        await push_step(state, "instrument")
+        await callback.message.edit_text(
+            bold("Step 2 — Instrument") + "\nPilih satu instrument." + footer(draft),
+            reply_markup=instrument_keyboard(draft),
+        )
+    except Exception:
+        logging.exception("pick_asset failed")
+        await callback.answer("Gagal memuat instrument. Coba lagi atau /new.", show_alert=True)
+        return
     await callback.answer()
 
 

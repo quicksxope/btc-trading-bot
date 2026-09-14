@@ -58,4 +58,4 @@ def load_rule_templates() -> dict:
 def list_prop_template_ids() -> list[str]:
     from engine.prop_firm import PACKS_DIR
 
-    return sorted(p.stem for p in PACKS_DIR.glob("*.yaml"))
+    return sorted(p.stem for p in PACKS_DIR.glob("*.yaml") if not p.name.startswith("."))
