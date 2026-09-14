@@ -48,7 +48,7 @@ def step_risk_reward_title(draft: BacktestDraft) -> str:
     return (
         bold("6 — Risk : reward")
         + f"\nTP vs jarak SL (swing). Saat ini <b>1:{rr:g}</b>."
-        + "\n<i>Berlaku jika paket prop pakai SL/TP.</i>"
+        + "\n<i>Berlaku jika paket prop pakai SL/TP. Max trades/hari diatur setelah pilih prop.</i>"
     )
 
 

@@ -211,7 +211,11 @@ async def deliver_job_results(bot, db: Database, job_id: str) -> None:
         primary_tf = ((raw_cfg or {}).get("timeframes") or {}).get("primary", "")
         from storage.study_templates import study_result_summary
 
-        text = study_result_summary(job_id, raw_result, inst, primary_tf or "—")
+        prop = (raw_cfg or {}).get("prop_firm") or {}
+        pack_id = prop.get("pack_id") if prop.get("enabled") else None
+        text = study_result_summary(
+            job_id, raw_result, inst, primary_tf or "—", prop_pack_id=pack_id
+        )
         from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
         kb = InlineKeyboardMarkup(

@@ -153,6 +153,29 @@ def strategy_mode_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def _max_trades_label(n: int | None) -> str:
+    if n is None or n == 0:
+        return "∞"
+    return str(n)
+
+
+def _max_trades_button(n: int, current: int | None) -> InlineKeyboardButton:
+    cur = current if current is not None else 0
+    mark = " ✓" if cur == n else ""
+    return InlineKeyboardButton(
+        text=f"{_max_trades_label(n)}{mark}",
+        callback_data=f"wiz:propp:mt:{n}",
+    )
+
+
+def max_trades_row(draft: "BacktestDraft") -> list[InlineKeyboardButton]:
+    cur = draft.execution_max_trades_per_day
+    if cur is None:
+        cur = 0
+    opts = [0, 1, 2, 3, 5]
+    return [_max_trades_button(n, cur) for n in opts]
+
+
 def risk_reward_keyboard(draft: "BacktestDraft | None" = None) -> InlineKeyboardMarkup:
     from bot.fsm.validation import BacktestDraft
 
@@ -276,7 +299,7 @@ def _consistency_row(draft: "BacktestDraft") -> list[InlineKeyboardButton]:
 
 
 def prop_custom_keyboard(draft: "BacktestDraft | None" = None) -> InlineKeyboardMarkup:
-    from bot.fsm.validation import BacktestDraft
+    from bot.fsm.validation import BacktestDraft, pack_uses_sltp_risk
 
     d = draft or BacktestDraft()
     rows: list[list[InlineKeyboardButton]] = [
@@ -297,6 +320,8 @@ def prop_custom_keyboard(draft: "BacktestDraft | None" = None) -> InlineKeyboard
             InlineKeyboardButton(text="Min days 4", callback_data="wiz:propp:min4"),
         ],
     ]
+    if pack_uses_sltp_risk(d.prop_pack):
+        rows.append(max_trades_row(d))
     rows.append(_consistency_row(d))
     rows.append([InlineKeyboardButton(text="Continue »", callback_data="wiz:propp:done")])
     rows.append(nav_row())
@@ -304,7 +329,7 @@ def prop_custom_keyboard(draft: "BacktestDraft | None" = None) -> InlineKeyboard
 
 
 def prop_params_keyboard(draft: "BacktestDraft | None" = None) -> InlineKeyboardMarkup:
-    from bot.fsm.validation import BacktestDraft
+    from bot.fsm.validation import BacktestDraft, pack_uses_sltp_risk
 
     d = draft or BacktestDraft()
     rows: list[list[InlineKeyboardButton]] = [
@@ -317,6 +342,8 @@ def prop_params_keyboard(draft: "BacktestDraft | None" = None) -> InlineKeyboard
             InlineKeyboardButton(text="Max DD 8%", callback_data="wiz:propp:dd8"),
         ],
     ]
+    if pack_uses_sltp_risk(d.prop_pack):
+        rows.append(max_trades_row(d))
     rows.append(_consistency_row(d))
     rows.append([InlineKeyboardButton(text="Continue »", callback_data="wiz:propp:done")])
     rows.append(nav_row())

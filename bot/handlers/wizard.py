@@ -474,6 +474,8 @@ def _apply_prop_template(draft: BacktestDraft, pack_id: str) -> None:
     if defaults.get("mode") == "sltp_risk":
         if draft.execution_risk_reward_ratio is None:
             draft.execution_risk_reward_ratio = float(defaults.get("risk_reward_ratio", 2.0))
+        mt = defaults.get("max_trades_per_day")
+        draft.execution_max_trades_per_day = int(mt) if mt is not None else 0
     rule = pack.consistency_rule or "none"
     if rule != "none":
         draft.prop_consistency_rule = rule
@@ -528,6 +530,11 @@ def _prop_params_body(draft: BacktestDraft, title: str) -> str:
     if pack_uses_sltp_risk(draft.prop_pack):
         rr = draft.execution_risk_reward_ratio or 2.0
         extra = f"\nRisk:reward: <b>1:{rr:g}</b>"
+        mt = draft.execution_max_trades_per_day
+        if mt is None:
+            mt = 0
+        mt_label = "∞ (no cap)" if mt == 0 else str(mt)
+        extra += f"\nMax trades/day: <b>{mt_label}</b>"
     return title + extra + footer(draft)
 
 
@@ -555,6 +562,16 @@ async def prop_params(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     draft = _load_draft(data)
     parts = callback.data.split(":")
+    if len(parts) >= 4 and parts[2] == "mt":
+        draft.execution_max_trades_per_day = int(parts[3])
+        await state.update_data(**_save_draft(data, draft))
+        title = _prop_params_title(draft)
+        await callback.message.edit_text(
+            _prop_params_body(draft, title),
+            reply_markup=_prop_params_markup(draft),
+        )
+        await callback.answer("Max trades/day updated")
+        return
     if len(parts) >= 4 and parts[2] == "cons":
         tag = parts[3]
         if tag == "none":

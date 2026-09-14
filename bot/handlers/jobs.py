@@ -83,7 +83,9 @@ async def view_job(callback: CallbackQuery, db: Database) -> None:
         cfg = yaml.safe_load(job["config_yaml"]) or {}
         inst = str(cfg.get("instrument", ""))
         tf = (cfg.get("timeframes") or {}).get("primary", "")
-        text = study_result_summary(job_id, raw, inst, tf or "—")
+        prop = (cfg.get("prop_firm") or {})
+        pack_id = prop.get("pack_id") if prop.get("enabled") else None
+        text = study_result_summary(job_id, raw, inst, tf or "—", prop_pack_id=pack_id)
         await callback.message.answer(text)
         await callback.answer()
         return

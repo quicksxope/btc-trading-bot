@@ -52,6 +52,7 @@ class BacktestDraft:
     prop_profit_target_pct: float | None = None
     prop_min_trading_days: int | None = None
     execution_risk_reward_ratio: float | None = 2.0
+    execution_max_trades_per_day: int | None = None
     prop_consistency_pct: float | None = None
     prop_consistency_rule: str | None = None
     initial_balance: float = 100_000.0
@@ -226,6 +227,8 @@ def validate_prop(draft: BacktestDraft) -> None:
         rr = draft.execution_risk_reward_ratio
         if not (0.25 <= rr <= 20):
             raise ValidationError("Risk:reward harus antara 0.25 dan 20.", "prop_firm")
+    if draft.execution_max_trades_per_day is not None and draft.execution_max_trades_per_day < 0:
+        raise ValidationError("Max trades/hari tidak valid.", "prop_firm")
 
 
 def validate_balance(draft: BacktestDraft) -> None:
@@ -318,13 +321,15 @@ def draft_to_config(draft: BacktestDraft) -> BacktestConfig:
     )
     if draft.prop_pack and draft.prop_pack not in (None, "none"):
         execution = enrich_execution_from_pack(execution, draft.prop_pack)
-    if (
-        draft.execution_risk_reward_ratio is not None
-        and execution.mode == "sltp_risk"
-    ):
-        execution = execution.model_copy(
-            update={"risk_reward_ratio": draft.execution_risk_reward_ratio}
-        )
+    if execution.mode == "sltp_risk":
+        exec_updates: dict = {}
+        if draft.execution_risk_reward_ratio is not None:
+            exec_updates["risk_reward_ratio"] = draft.execution_risk_reward_ratio
+        if draft.execution_max_trades_per_day is not None:
+            n = draft.execution_max_trades_per_day
+            exec_updates["max_trades_per_day"] = n if n > 0 else None
+        if exec_updates:
+            execution = execution.model_copy(update=exec_updates)
 
     return BacktestConfig(
         instrument=draft.instrument,

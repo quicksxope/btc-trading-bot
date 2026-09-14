@@ -94,8 +94,12 @@ def review_summary_html(draft: BacktestDraft) -> str:
             risk_line = f"risk/trade ≤ ${eff_risk:,.0f}"
             if eff_risk + 1e-6 < tpl_risk:
                 risk_line += f" (cap 1/10 max loss; template ${tpl_risk:,.0f})"
+            mt = draft.execution_max_trades_per_day
+            if mt is None:
+                mt = exec_defaults.get("max_trades_per_day")
+            mt_s = "∞" if mt is None or mt == 0 else str(int(mt))
             lines.append(
-                f"Execution: SL/TP swing · {risk_line} · R:R <b>1:{rr:g}</b>"
+                f"Execution: SL/TP swing · {risk_line} · R:R <b>1:{rr:g}</b> · max trades/day <b>{mt_s}</b>"
             )
         elif pack.engine == "usd":
             lines.append("<i>USD prop engine (no SL/TP template on this pack).</i>")
