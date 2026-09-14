@@ -1,0 +1,10 @@
+instrument_id: NASDAQ_CFD
+asset_class: cfd
+data_symbol: US100
+contract_size: 1.0
+spread_points: 1.0
+commission_per_lot: 0.0
+fee_bps: 0.0
+funding_bps_per_8h: 0.0
+leverage: 20.0
+point_value: 1.0

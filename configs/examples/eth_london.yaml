@@ -1,0 +1,28 @@
+instrument: ETH_PERP
+asset_class: crypto_perp
+date_range:
+  start: "2024-01-01"
+  end: "2024-06-30"
+session:
+  id: london
+  use_for_trading: true
+  use_for_accounting: true
+timeframes:
+  primary: 15m
+  context:
+    - 1h
+    - 4h
+strategy:
+  mode: preset
+  preset: trend_ema_cross
+prop_firm:
+  enabled: true
+  pack_id: generic
+  daily_loss_pct: 5.0
+  max_drawdown_pct: 10.0
+execution:
+  fill: next_bar_open
+  initial_balance: 100000
+  allow_entries_outside_session: false
+  allow_exits_outside_session: true
+  daily_reset: session

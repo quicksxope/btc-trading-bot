@@ -1,0 +1,15 @@
+[Unit]
+Description=Agnostic backtest job worker
+After=network-online.target
+
+[Service]
+Type=simple
+User=user
+WorkingDirectory=/home/user/agnostic-trading-backtest
+EnvironmentFile=/home/user/agnostic-trading-backtest/.env
+ExecStart=/home/user/agnostic-trading-backtest/.venv/bin/backtest-worker
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

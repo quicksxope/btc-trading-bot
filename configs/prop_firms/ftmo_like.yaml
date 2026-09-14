@@ -1,0 +1,11 @@
+description: FTMO-like 2-step style (simplified) — indices, metals, crypto
+daily_loss_pct: 5.0
+max_drawdown_pct: 10.0
+profit_target_pct: 10.0
+min_trading_days: 4
+allowed_instruments:
+  - BTC_PERP
+  - ETH_PERP
+  - SPX500_CFD
+  - NASDAQ_CFD
+  - XAUUSD_CFD

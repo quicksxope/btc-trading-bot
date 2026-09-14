@@ -1,0 +1,10 @@
+instrument_id: ETH_PERP
+asset_class: crypto_perp
+data_symbol: ETH-USD
+contract_size: 1.0
+spread_points: 0.0
+commission_per_lot: 0.0
+fee_bps: 4.0
+funding_bps_per_8h: 1.0
+leverage: 10.0
+point_value: 1.0

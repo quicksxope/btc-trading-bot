@@ -1,0 +1,48 @@
+instruments:
+  BTC_PERP:
+    data_symbol: BTC-USD
+    source: coinbase
+    available_from: '2024-01-01'
+    available_to: '2024-02-22'
+    timeframes:
+    - 15m
+    - 1h
+    - 4h
+    - 1d
+  ETH_PERP:
+    data_symbol: ETH-USD
+    source: coinbase
+    available_from: '2024-01-01'
+    available_to: '2024-02-22'
+    timeframes:
+    - 15m
+    - 1h
+    - 4h
+    - 1d
+  SPX500_CFD:
+    data_symbol: US500
+    available_from: '2024-01-01'
+    available_to: '2024-06-30'
+    timeframes:
+    - 15m
+    - 1h
+    - 4h
+    - 1d
+  NASDAQ_CFD:
+    data_symbol: US100
+    available_from: '2024-01-01'
+    available_to: '2024-06-30'
+    timeframes:
+    - 15m
+    - 1h
+    - 4h
+    - 1d
+  XAUUSD_CFD:
+    data_symbol: XAUUSD
+    available_from: '2024-01-01'
+    available_to: '2024-06-30'
+    timeframes:
+    - 15m
+    - 1h
+    - 4h
+    - 1d

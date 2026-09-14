@@ -1,0 +1,19 @@
+services:
+  worker:
+    build: .
+    command: backtest-worker
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./jobs:/app/jobs
+      - ./configs:/app/configs
+  bot:
+    build: .
+    command: backtest-bot
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./jobs:/app/jobs
+      - ./configs:/app/configs
+    depends_on:
+      - worker

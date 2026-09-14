@@ -1,0 +1,4 @@
+description: Generic challenge — overrides via bot for daily/max DD
+daily_loss_pct: 5.0
+max_drawdown_pct: 10.0
+allowed_instruments: []
