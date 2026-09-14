@@ -55,12 +55,13 @@ def job_result_badge(job: dict) -> str:
     result = result_from_job(job)
     if result is None:
         return "?"
+    stats = f"{result.net_pnl_pct:+.1f}% · {result.trade_count} trades"
     if not prop_enabled_in_job(job):
-        return f"PnL {result.net_pnl_pct:+.1f}%"
+        return f"PnL {stats}"
     if result.prop_pass:
-        return f"PASS {result.net_pnl_pct:+.1f}%"
+        return f"PASS {stats}"
     reason = (result.prop_fail_reason or "fail")[:28]
-    return f"FAIL {result.net_pnl_pct:+.1f}% ({reason})"
+    return f"FAIL {stats} ({reason})"
 
 
 def job_config_hint(job: dict) -> str:
