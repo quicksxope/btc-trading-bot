@@ -15,7 +15,15 @@ from engine.prop_firm import PropState, evaluate_prop, merge_prop_config
 from engine.session import is_in_session, session_day_key
 from engine.strategy import build_signals
 
-TF_RULES = {"1m": "1min", "5m": "5min", "15m": "15min", "1h": "1h", "4h": "4h", "1d": "1D"}
+TF_RULES = {
+    "1m": "1min",
+    "5m": "5min",
+    "15m": "15min",
+    "30m": "30min",
+    "1h": "1h",
+    "4h": "4h",
+    "1d": "1D",
+}
 
 
 ProgressCallback = Callable[[str, float], None]

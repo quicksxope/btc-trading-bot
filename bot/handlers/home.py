@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import yaml
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -11,6 +12,7 @@ from aiogram.types import CallbackQuery, FSInputFile, Message
 
 from bot.formatting import bold, footer
 from bot.menu import help_message_html
+from bot.review_text import hola_result_disclaimer
 from bot.fsm.validation import BacktestDraft
 from bot.keyboards import asset_class_keyboard, home_keyboard
 from engine.models import BacktestResult
@@ -188,7 +190,23 @@ async def deliver_job_results(bot, db: Database, job_id: str) -> None:
                 result.net_pnl_pct - prev_r.net_pnl_pct,
                 result.max_drawdown_pct - prev_r.max_drawdown_pct,
             )
-    sem = job["config_yaml"].split("\n")[0][:80] if job["config_yaml"] else job_id
+    raw_cfg = yaml.safe_load(job["config_yaml"]) if job.get("config_yaml") else {}
+    prop = (raw_cfg or {}).get("prop_firm") or {}
+    pack_id = prop.get("pack_id") if prop.get("enabled") else None
+    preset = ((raw_cfg or {}).get("strategy") or {}).get("preset")
+    primary_tf = ((raw_cfg or {}).get("timeframes") or {}).get("primary")
+    sem_parts = []
+    if preset:
+        sem_parts.append(f"preset={preset}")
+    if primary_tf:
+        sem_parts.append(f"tf={primary_tf}")
+    if pack_id:
+        sem_parts.append(f"prop={pack_id}")
+    sem = " | ".join(sem_parts) if sem_parts else job_id[:80]
+    footer_note = hola_result_disclaimer(str(pack_id) if pack_id else None)
+    if preset == "cipher_b" and primary_tf and primary_tf != "30m":
+        hint = "<i>Cipher B: 30m recommended (15m resample in DB).</i>"
+        footer_note = f"{footer_note}\n{hint}" if footer_note else hint
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
     kb = InlineKeyboardMarkup(
@@ -202,7 +220,7 @@ async def deliver_job_results(bot, db: Database, job_id: str) -> None:
     )
     await bot.send_message(
         chat_id,
-        templates.result_summary(job_id, result, sem, compare),
+        templates.result_summary(job_id, result, sem, compare, footer_note),
         reply_markup=kb,
     )
     arts = await db.list_artifacts(job_id)

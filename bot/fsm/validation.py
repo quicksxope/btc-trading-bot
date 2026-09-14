@@ -20,7 +20,7 @@ from engine.models import (
 )
 
 AssetClassChoice = Literal["crypto_perp", "cfd"]
-TIMEFRAME_ORDER = {"1m": 1, "5m": 5, "15m": 15, "1h": 60, "4h": 240, "1d": 1440}
+TIMEFRAME_ORDER = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "4h": 240, "1d": 1440}
 
 
 @dataclass

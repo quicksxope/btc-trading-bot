@@ -30,11 +30,17 @@ def help_message_html() -> str:
         "• Session: Asia / London / NY (UTC)\n"
         "• Fill: next bar open\n"
         "• Prop: daily loss &amp; max drawdown pada equity\n"
-        "• MTF: context TF harus lebih tinggi dari primary\n\n"
+        "• MTF: context TF harus lebih tinggi dari primary\n"
+        "• Primary <b>30m</b>: dibangun dari bar 15m di DB (resample)\n\n"
+        "<b>Strategi</b>\n"
+        "Preset: Cipher_B, EMA cross, RSI revert. Custom = indikator + rule.\n\n"
+        "<b>Prop firm</b>\n"
+        "Wizard: None / Generic / FTMO-like. "
+        "Pack <b>Hola Prime</b> (10K, 1-Step): lewat <b>My presets</b> + contoh YAML "
+        "(lihat docs/TELEGRAM_WIZARD.md) — full USD rules Phase B.\n\n"
         "<b>Data</b>\n"
-        "Crypto: OHLCV di Supabase; gap di-fetch dari Coinbase saat <b>Run</b> "
-        "(bukan cron harian). Step instrument menampilkan coverage DB.\n"
-        "CFD: CSV lokal (fase berikutnya)."
+        "Crypto: OHLCV di Supabase; gap di-fetch dari Coinbase saat <b>Run</b>. "
+        "CFD: CSV lokal."
     )
 
 

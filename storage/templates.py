@@ -35,6 +35,7 @@ def result_summary(
     result: BacktestResult,
     semantics: str,
     compare_delta: str | None = None,
+    footer_note: str | None = None,
 ) -> str:
     headline = "PASS prop rules" if result.prop_pass else f"FAIL prop — {result.prop_fail_reason}"
     lines = [
@@ -54,6 +55,8 @@ def result_summary(
     ]
     if compare_delta:
         lines.extend(["", compare_delta])
+    if footer_note:
+        lines.extend(["", footer_note])
     return "\n".join(lines)
 
 

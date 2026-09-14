@@ -106,10 +106,13 @@ def primary_tf_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
+                InlineKeyboardButton(text="15m", callback_data="wiz:ptf:15m"),
+                InlineKeyboardButton(text="30m", callback_data="wiz:ptf:30m"),
+                InlineKeyboardButton(text="1h", callback_data="wiz:ptf:1h"),
+            ],
+            [
                 InlineKeyboardButton(text="1m", callback_data="wiz:ptf:1m"),
                 InlineKeyboardButton(text="5m", callback_data="wiz:ptf:5m"),
-                InlineKeyboardButton(text="15m", callback_data="wiz:ptf:15m"),
-                InlineKeyboardButton(text="1h", callback_data="wiz:ptf:1h"),
             ],
             nav_row(),
         ]
@@ -144,6 +147,7 @@ def strategy_mode_keyboard() -> InlineKeyboardMarkup:
 def strategy_preset_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text="Cipher_B (WT+RSI+Bressert)", callback_data="wiz:sp:cipher_b")],
             [InlineKeyboardButton(text="Trend_EMA_cross", callback_data="wiz:sp:trend_ema_cross")],
             [InlineKeyboardButton(text="RSI_mean_revert", callback_data="wiz:sp:rsi_mean_revert")],
             nav_row(),

@@ -18,12 +18,17 @@ from engine.warehouse import (
 ProgressCallback = Callable[[str, float], None]
 
 
-def _timeframes_for_config(config: BacktestConfig) -> list[str]:
-    tfs = [config.timeframes.primary]
-    for c in config.timeframes.context:
-        if c not in tfs:
-            tfs.append(c)
-    return tfs
+def _fetch_timeframes(config: BacktestConfig) -> list[str]:
+    """Coinbase fetch targets (30m is resampled from 15m)."""
+    from engine.data_loader import RESAMPLE_FROM
+
+    raw = [config.timeframes.primary, *config.timeframes.context]
+    out: list[str] = []
+    for tf in raw:
+        src = RESAMPLE_FROM.get(tf, tf)
+        if src not in out:
+            out.append(src)
+    return out
 
 
 def ensure_bars_for_config(
@@ -39,7 +44,7 @@ def ensure_bars_for_config(
         return
 
     product_id = profile.data_symbol
-    tfs = _timeframes_for_config(config)
+    tfs = _fetch_timeframes(config)
     u0, u1 = config.date_range.start, config.date_range.end
     total_steps = len(tfs)
     step_i = 0

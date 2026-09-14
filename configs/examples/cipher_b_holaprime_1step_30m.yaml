@@ -1,0 +1,30 @@
+# Advanced: Hola 1-Step + Cipher B — load via My presets (save from YAML) or CLI.
+# Not in wizard Prop menu until Phase B (full USD / consistency / SL·TP).
+
+instrument: BTC_PERP
+asset_class: crypto_perp
+date_range:
+  start: 2024-01-01
+  end: 2024-06-01
+session:
+  id: all_day
+  use_for_trading: true
+  use_for_accounting: true
+timeframes:
+  primary: 30m
+  context:
+    - 1h
+strategy:
+  mode: preset
+  preset: cipher_b
+prop_firm:
+  enabled: true
+  pack_id: holaprime_1step_10k
+  daily_loss_pct: 3.0
+  max_drawdown_pct: 6.0
+execution:
+  fill: next_bar_open
+  initial_balance: 10000
+  allow_entries_outside_session: false
+  allow_exits_outside_session: true
+  daily_reset: session

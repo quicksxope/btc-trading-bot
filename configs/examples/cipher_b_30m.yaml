@@ -1,0 +1,24 @@
+instrument: ETH_PERP
+asset_class: crypto_perp
+date_range:
+  start: 2024-01-01
+  end: 2024-03-01
+session:
+  id: all_day
+  use_for_trading: true
+  use_for_accounting: true
+timeframes:
+  primary: 30m
+  context:
+    - 1h
+strategy:
+  mode: preset
+  preset: cipher_b
+prop_firm:
+  enabled: false
+execution:
+  fill: next_bar_open
+  initial_balance: 10000
+  allow_entries_outside_session: false
+  allow_exits_outside_session: true
+  daily_reset: session

@@ -1,0 +1,10 @@
+description: >-
+  Hola Prime 1-Step $10K challenge (approx %). Profit target 10%, static max loss 6%.
+  Consistency & USD intraday rules — Phase B.
+daily_loss_pct: 3.0
+max_drawdown_pct: 6.0
+profit_target_pct: 10.0
+min_trading_days: 2
+allowed_instruments:
+  - BTC_PERP
+  - ETH_PERP

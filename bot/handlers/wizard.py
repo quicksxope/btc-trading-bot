@@ -36,6 +36,7 @@ from engine.models import InstrumentId, SessionId
 from engine.prop_firm import instrument_allowed
 from storage.db import Database
 from bot.formatting import bold, code, footer, pre
+from bot.review_text import review_summary_html
 from storage.templates import job_card
 
 router = Router()
@@ -304,8 +305,11 @@ async def pick_strategy_preset(callback: CallbackQuery, state: FSMContext) -> No
     draft = _load_draft(data)
     draft.strategy_preset = callback.data.split(":")[-1]
     await state.update_data(**_save_draft(data, draft))
+    hint = ""
+    if draft.strategy_preset == "cipher_b":
+        hint = "\n<i>Disarankan primary 30m (Coinbase: resample dari 15m).</i>"
     await callback.message.edit_text(
-        bold("Step 7 — Prop firm") + footer(draft),
+        bold("Step 7 — Prop firm") + hint + footer(draft),
         reply_markup=prop_keyboard(),
     )
     await callback.answer()
@@ -438,16 +442,18 @@ async def custom_balance(message: Message, state: FSMContext) -> None:
         return
     await state.set_state(WizardStates.active)
     await state.update_data(**_save_draft(data, draft))
-    cfg = draft_to_config(draft)
-    yaml_body = yaml.safe_dump(cfg.to_yaml_dict(), sort_keys=False)[:3500]
-    text = bold("Review") + "\n" + pre(yaml_body)
+    text = _review_message(draft)
     await message.answer(text + footer(draft), reply_markup=review_keyboard())
 
 
-async def _show_review(message: Message, state: FSMContext, draft: BacktestDraft) -> None:
+def _review_message(draft: BacktestDraft) -> str:
     cfg = draft_to_config(draft)
-    yaml_body = yaml.safe_dump(cfg.to_yaml_dict(), sort_keys=False)[:3500]
-    text = bold("Review") + "\n" + pre(yaml_body)
+    yaml_body = yaml.safe_dump(cfg.to_yaml_dict(), sort_keys=False)[:2000]
+    return review_summary_html(draft) + "\n\n" + pre(yaml_body)
+
+
+async def _show_review(message: Message, state: FSMContext, draft: BacktestDraft) -> None:
+    text = _review_message(draft)
     await message.edit_text(text + footer(draft), reply_markup=review_keyboard())
 
 
