@@ -62,6 +62,28 @@ async def cmd_new(message: Message, state: FSMContext, db: Database) -> None:
     )
 
 
+@router.callback_query(F.data == "home:study")
+async def home_study(callback: CallbackQuery, state: FSMContext, db: Database) -> None:
+    from bot.states import WizardStates
+    from bot.wizard_nav import clear_stack, push_step
+
+    await db.ensure_user(callback.from_user.id, callback.from_user.username)
+    await state.clear()
+    draft = BacktestDraft(wizard_kind="study")
+    last = await db.get_last_indicator_favorite(callback.from_user.id)
+    if last:
+        draft.study_pool = last[:3]
+    await state.update_data(draft=draft.__dict__)
+    await state.set_state(WizardStates.active)
+    await clear_stack(state)
+    await push_step(state, "asset")
+    await callback.message.edit_text(
+        bold("Indicator study — Step 1 — Asset class") + footer(draft),
+        reply_markup=asset_class_keyboard(),
+    )
+    await callback.answer()
+
+
 @router.callback_query(F.data == "home:help")
 async def help_cb(callback: CallbackQuery) -> None:
     await callback.message.edit_text(help_message_html(), reply_markup=home_keyboard())
@@ -180,7 +202,25 @@ async def deliver_job_results(bot, db: Database, job_id: str) -> None:
     chat_id = job.get("chat_id")
     if not chat_id:
         return
-    result = BacktestResult.model_validate(json.loads(job["result_json"]))
+    raw_result = json.loads(job["result_json"])
+    if raw_result.get("kind") == "indicator_study":
+        raw_cfg = yaml.safe_load(job["config_yaml"]) if job.get("config_yaml") else {}
+        inst = str((raw_cfg or {}).get("instrument", ""))
+        primary_tf = ((raw_cfg or {}).get("timeframes") or {}).get("primary", "")
+        from storage.study_templates import study_result_summary
+
+        text = study_result_summary(job_id, raw_result, inst, primary_tf or "—")
+        from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="« Home", callback_data="home:back")],
+            ]
+        )
+        await bot.send_message(chat_id, text, reply_markup=kb)
+        return
+
+    result = BacktestResult.model_validate(raw_result)
     compare = None
     if job.get("compare_job_id"):
         prev = await db.get_job(job["compare_job_id"])

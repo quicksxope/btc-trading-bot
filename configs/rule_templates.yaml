@@ -54,3 +54,24 @@ templates:
     short_when: "primary_LIQUIDITYSWEEP_sweep_bear > 0"
     requires_indicators:
       - { name: LIQUIDITYSWEEP, timeframe: primary, params: { pool_lookback: 20 } }
+
+  macd_momentum_long:
+    label: "Long MACD hist > 0"
+    long_when: "primary_MACD_hist > 0"
+    short_when: "primary_MACD_hist < 0"
+    requires_indicators:
+      - { name: MACD, timeframe: primary, params: {} }
+
+  atr_vol_filter:
+    label: "ATR active (min vol present)"
+    long_when: "primary_ATR_value > 0.0001"
+    short_when: "primary_ATR_value > 0.0001"
+    requires_indicators:
+      - { name: ATR, timeframe: primary, params: { period: 14 } }
+
+  bressert_cross_long:
+    label: "Long Bressert cross up"
+    long_when: "cross_above(primary_BRESSERT_dss, primary_BRESSERT_signal)"
+    short_when: "cross_below(primary_BRESSERT_dss, primary_BRESSERT_signal)"
+    requires_indicators:
+      - { name: BRESSERT, timeframe: primary, params: {} }

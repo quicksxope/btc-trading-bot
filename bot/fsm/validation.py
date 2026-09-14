@@ -20,6 +20,7 @@ from engine.models import (
 )
 
 AssetClassChoice = Literal["crypto_perp", "cfd"]
+WizardKind = Literal["standard", "study"]
 TIMEFRAME_ORDER = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "4h": 240, "1d": 1440}
 
 
@@ -27,8 +28,10 @@ TIMEFRAME_ORDER = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "4h": 240, 
 class BacktestDraft:
     """Mutable wizard state before YAML/config materialization."""
 
+    wizard_kind: WizardKind = "standard"
     asset_class: AssetClassChoice | None = None
     instrument: InstrumentId | None = None
+    study_pool: list[str] = field(default_factory=list)
     date_from: date | None = None
     date_to: date | None = None
     session_id: SessionId | None = None
@@ -131,6 +134,26 @@ def validate_timeframes(draft: BacktestDraft) -> None:
             )
 
 
+def validate_study_pool(draft: BacktestDraft) -> None:
+    from engine.catalog import indicator_ids, indicators_missing_sweep
+
+    pool = [p.upper() for p in draft.study_pool]
+    if not pool or len(pool) > 3:
+        raise ValidationError("Pilih 1–3 indikator untuk study.", "study_pool")
+    allowed = set(indicator_ids())
+    for ind in pool:
+        if ind not in allowed:
+            raise ValidationError(f"Indikator tidak valid: {ind}", "study_pool")
+    if len(set(pool)) != len(pool):
+        raise ValidationError("Indikator duplikat.", "study_pool")
+    missing = indicators_missing_sweep(pool)
+    if missing:
+        raise ValidationError(
+            f"Belum ada sweep template: {', '.join(missing)}",
+            "study_pool",
+        )
+
+
 def validate_strategy(draft: BacktestDraft) -> None:
     if draft.strategy_mode == "preset":
         if not draft.strategy_preset:
@@ -173,15 +196,25 @@ def validate_full(draft: BacktestDraft) -> None:
     validate_date_range(draft)
     validate_session(draft)
     validate_timeframes(draft)
-    validate_strategy(draft)
+    if draft.wizard_kind == "study":
+        validate_study_pool(draft)
+    else:
+        validate_strategy(draft)
     validate_prop(draft)
     validate_balance(draft)
+
+
+def study_mix_count(pool: list[str]) -> int:
+    n = len(set(p.upper() for p in pool))
+    return (1 << n) - 1 if n else 0
 
 
 def draft_to_config(draft: BacktestDraft) -> BacktestConfig:
     validate_full(draft)
     assert draft.instrument and draft.date_from and draft.date_to and draft.session_id
-    assert draft.primary_tf and draft.strategy_mode
+    assert draft.primary_tf
+    if draft.wizard_kind != "study":
+        assert draft.strategy_mode
 
     ac = AssetClass.CRYPTO_PERP if draft.asset_class == "crypto_perp" else AssetClass.CFD
 
@@ -197,8 +230,16 @@ def draft_to_config(draft: BacktestDraft) -> BacktestConfig:
             min_trading_days=draft.prop_min_trading_days,
         )
 
-    if draft.strategy_mode == "preset":
+    meta: dict = {"created_at": datetime.utcnow().isoformat() + "Z"}
+    if draft.wizard_kind == "study":
+        pool = sorted({p.upper() for p in draft.study_pool})
+        meta["job_kind"] = "indicator_study"
+        meta["indicator_pool"] = pool
+        strategy = StrategyConfig(mode="custom", custom_indicators=[], custom_rule="")
+        context_tfs: list[str] = []
+    elif draft.strategy_mode == "preset":
         strategy = StrategyConfig(mode="preset", preset=draft.strategy_preset)
+        context_tfs = list(draft.context_tfs)
     else:
         from engine.models import CustomRulesV2
 
@@ -214,6 +255,7 @@ def draft_to_config(draft: BacktestDraft) -> BacktestConfig:
             custom_rule=draft.custom_rule or "",
             custom_rules_v2=rules_v2,
         )
+        context_tfs = list(draft.context_tfs)
 
     daily_reset = "utc" if draft.prop_daily_reset_utc else "session"
 
@@ -238,9 +280,9 @@ def draft_to_config(draft: BacktestDraft) -> BacktestConfig:
             use_for_trading=draft.session_trading,
             use_for_accounting=draft.session_accounting,
         ),
-        timeframes=TimeframeConfig(primary=draft.primary_tf, context=list(draft.context_tfs)),
+        timeframes=TimeframeConfig(primary=draft.primary_tf, context=context_tfs),
         strategy=strategy,
         prop_firm=prop,
         execution=execution,
-        meta={"created_at": datetime.utcnow().isoformat() + "Z"},
+        meta=meta,
     )

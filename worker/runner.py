@@ -37,6 +37,29 @@ async def process_job(db: Database, job_id: str) -> None:
         asyncio.run_coroutine_threadsafe(progress(stage, pct), loop)
 
     try:
+        job_kind = (config.meta or {}).get("job_kind")
+        if job_kind == "indicator_study":
+            from engine.study import run_indicator_study
+
+            pool = (config.meta or {}).get("indicator_pool") or []
+
+            def _study_progress(stage: str, pct: float) -> None:
+                on_progress(stage, pct)
+
+            payload = await asyncio.to_thread(
+                run_indicator_study, config, pool, _study_progress
+            )
+            await db.save_study_record(job_id, job["telegram_id"], job["config_yaml"], payload)
+            await db.finish_job(job_id, payload)
+            best = payload.get("best") or {}
+            log.info(
+                "Study %s done: %s mixes, best %s",
+                job_id,
+                payload.get("mix_count"),
+                payload.get("best_mix_label"),
+            )
+            return
+
         result, equity, trades, daily, breach = await asyncio.to_thread(
             run_backtest, config, on_progress
         )

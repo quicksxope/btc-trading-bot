@@ -15,7 +15,10 @@ def result_from_job(job: dict) -> BacktestResult | None:
     if not raw:
         return None
     try:
-        return BacktestResult.model_validate(json.loads(raw))
+        data = json.loads(raw)
+        if data.get("kind") == "indicator_study" and data.get("best"):
+            return BacktestResult.model_validate(data["best"])
+        return BacktestResult.model_validate(data)
     except Exception:
         return None
 
@@ -76,6 +79,11 @@ def job_config_hint(job: dict) -> str:
         prop = cfg.get("prop_firm") or {}
         if prop.get("enabled"):
             parts.append(prop.get("pack_id", "prop"))
+        meta = cfg.get("meta") or {}
+        if meta.get("job_kind") == "indicator_study":
+            pool = meta.get("indicator_pool") or []
+            if pool:
+                parts.append("study " + "+".join(pool))
         strat = cfg.get("strategy") or {}
         if strat.get("mode") == "preset" and strat.get("preset"):
             parts.append(strat["preset"])

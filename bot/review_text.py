@@ -20,7 +20,15 @@ def review_summary_html(draft: BacktestDraft) -> str:
         lines.append(f"Primary TF: {escape(draft.primary_tf)}")
         if draft.context_tfs:
             lines.append(f"Context: {escape(', '.join(draft.context_tfs))}")
-    if draft.strategy_mode == "preset" and draft.strategy_preset:
+    if draft.wizard_kind == "study":
+        from bot.fsm.validation import study_mix_count
+
+        pool = ", ".join(draft.study_pool) if draft.study_pool else "—"
+        mixes = study_mix_count(draft.study_pool)
+        lines.append(f"Mode: indicator study ({mixes} mixes)")
+        lines.append(f"Pool: {escape(pool)}")
+        lines.append("Rule: default template AND · primary TF only")
+    elif draft.strategy_mode == "preset" and draft.strategy_preset:
         lines.append(f"Strategy: preset {escape(draft.strategy_preset)}")
         if draft.strategy_preset == "cipher_b" and draft.primary_tf and draft.primary_tf != "30m":
             lines.append(

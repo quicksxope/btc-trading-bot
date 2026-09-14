@@ -1,6 +1,7 @@
 indicators:
   RSI:
     label: RSI
+    sweep_template: rsi_oversold_long
     outputs: [value]
     default_output: value
     params:
@@ -9,6 +10,7 @@ indicators:
 
   EMA:
     label: EMA
+    sweep_template: ema_trend_long
     outputs: [value]
     default_output: value
     params:
@@ -17,6 +19,7 @@ indicators:
 
   ATR:
     label: ATR
+    sweep_template: atr_vol_filter
     outputs: [value]
     default_output: value
     params:
@@ -25,6 +28,7 @@ indicators:
 
   MACD:
     label: MACD
+    sweep_template: macd_momentum_long
     outputs: [macd, signal, hist]
     default_output: macd
     params:
@@ -35,6 +39,7 @@ indicators:
 
   WAVETREND:
     label: WaveTrend
+    sweep_template: wt_cross_long
     outputs: [wt, signal]
     default_output: wt
     params:
@@ -45,6 +50,7 @@ indicators:
 
   BRESSERT:
     label: Bressert DSS
+    sweep_template: bressert_cross_long
     outputs: [dss, signal]
     default_output: dss
     params:
@@ -55,6 +61,7 @@ indicators:
 
   STOCHRSI:
     label: Stochastic RSI
+    sweep_template: stoch_oversold_long
     outputs: [k, d]
     default_output: k
     params:
@@ -66,6 +73,7 @@ indicators:
 
   ADX:
     label: ADX / DMI
+    sweep_template: adx_trend_long
     outputs: [adx, plus_di, minus_di]
     default_output: adx
     params:
@@ -74,6 +82,7 @@ indicators:
 
   FIB:
     label: Fibonacci retrace
+    sweep_template: fib_618_long
     outputs: [level_382, level_618, near_382, near_618]
     default_output: level_618
     params:
@@ -83,6 +92,7 @@ indicators:
 
   LIQUIDITYSWEEP:
     label: Liquidity sweep
+    sweep_template: sweep_bull_long
     outputs: [sweep_bull, sweep_bear]
     default_output: sweep_bull
     params:

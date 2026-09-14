@@ -13,6 +13,7 @@ STEP_ORDER = (
     "session_toggles",
     "timeframe_primary",
     "timeframe_context",
+    "study_pool",
     "strategy_mode",
     "strategy_detail",
     "prop",

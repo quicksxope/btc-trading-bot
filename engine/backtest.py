@@ -48,25 +48,10 @@ def _day_key(ts: datetime, config: BacktestConfig) -> str:
     return ts.strftime("%Y-%m-%d")
 
 
-def run_backtest(
+def load_backtest_frames(
     config: BacktestConfig,
-    on_progress: ProgressCallback | None = None,
-    *,
-    skip_ensure: bool = False,
-) -> tuple[BacktestResult, pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
-    def prog(stage: str, pct: float) -> None:
-        if on_progress:
-            on_progress(stage, pct)
-
-    if not skip_ensure:
-        from engine.data_ensure import ensure_bars_for_config
-
-        ensure_bars_for_config(config, on_progress=prog)
-
-    prog("Loading data", 35)
+) -> tuple[pd.DataFrame, dict[str, pd.DataFrame], dict[str, pd.Series], InstrumentProfile]:
     profile = load_instrument_profile(config.instrument)
-    prop = merge_prop_config(config.prop_firm)
-
     primary_tf = config.timeframes.primary
     primary = load_bars(
         profile.data_symbol,
@@ -74,8 +59,6 @@ def run_backtest(
         config.date_range.start,
         config.date_range.end,
     )
-
-    prog("Building MTF", 45)
     context_frames: dict[str, pd.DataFrame] = {}
     context_idx: dict[str, pd.Series] = {}
     base = load_bars(
@@ -96,7 +79,22 @@ def run_backtest(
             except FileNotFoundError:
                 context_frames[tf] = resample_bars(base, rule)
         context_idx[tf] = align_context_to_primary(primary, context_frames[tf])
+    return primary, context_frames, context_idx, profile
 
+
+def simulate_backtest(
+    config: BacktestConfig,
+    primary: pd.DataFrame,
+    context_frames: dict[str, pd.DataFrame],
+    context_idx: dict[str, pd.Series],
+    profile: InstrumentProfile,
+    on_progress: ProgressCallback | None = None,
+) -> tuple[BacktestResult, pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
+    def prog(stage: str, pct: float) -> None:
+        if on_progress:
+            on_progress(stage, pct)
+
+    prop = merge_prop_config(config.prop_firm)
     signals = build_signals(config.strategy, primary, context_frames, context_idx)
 
     exec_cfg = enrich_execution_from_pack(
@@ -391,3 +389,26 @@ def run_backtest(
     )
     prog("Done", 100)
     return result, equity_df, trades_df, daily_df, breach_log
+
+
+def run_backtest(
+    config: BacktestConfig,
+    on_progress: ProgressCallback | None = None,
+    *,
+    skip_ensure: bool = False,
+) -> tuple[BacktestResult, pd.DataFrame, pd.DataFrame, pd.DataFrame, list[str]]:
+    def prog(stage: str, pct: float) -> None:
+        if on_progress:
+            on_progress(stage, pct)
+
+    if not skip_ensure:
+        from engine.data_ensure import ensure_bars_for_config
+
+        ensure_bars_for_config(config, on_progress=prog)
+
+    prog("Loading data", 35)
+    primary, context_frames, context_idx, profile = load_backtest_frames(config)
+    prog("Building MTF", 45)
+    return simulate_backtest(
+        config, primary, context_frames, context_idx, profile, on_progress=on_progress
+    )

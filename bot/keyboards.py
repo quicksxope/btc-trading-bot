@@ -15,7 +15,10 @@ def nav_row(back_cb: str = "wiz:back", cancel_cb: str = "wiz:cancel") -> list[In
 def home_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="New backtest", callback_data="home:new")],
+            [
+                InlineKeyboardButton(text="New backtest", callback_data="home:new"),
+                InlineKeyboardButton(text="Indicator study", callback_data="home:study"),
+            ],
             [
                 InlineKeyboardButton(text="My presets", callback_data="home:presets"),
                 InlineKeyboardButton(text="Last results", callback_data="home:last"),

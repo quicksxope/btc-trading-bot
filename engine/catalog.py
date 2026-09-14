@@ -48,6 +48,15 @@ def indicator_meta(indicator_id: str) -> dict:
     return load_indicator_catalog().get("indicators", {}).get(indicator_id, {})
 
 
+def sweep_template_id(indicator_id: str) -> str | None:
+    tid = indicator_meta(indicator_id).get("sweep_template")
+    return str(tid) if tid else None
+
+
+def indicators_missing_sweep(pool: list[str]) -> list[str]:
+    return [ind for ind in pool if not sweep_template_id(ind)]
+
+
 @lru_cache(maxsize=1)
 def load_rule_templates() -> dict:
     if not RULE_TEMPLATES_PATH.exists():

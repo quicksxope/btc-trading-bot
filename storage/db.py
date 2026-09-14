@@ -269,6 +269,119 @@ class Database:
         p.mkdir(parents=True, exist_ok=True)
         return p
 
+    async def save_indicator_favorite(
+        self,
+        telegram_id: int,
+        indicators: list[str],
+        name: str | None = None,
+    ) -> None:
+        payload = json.dumps(sorted({i.upper() for i in indicators}))
+        async with self.session() as db:
+            if name:
+                await db.execute(
+                    """
+                    INSERT INTO indicator_favorites (telegram_id, name, indicators_json)
+                    VALUES (?, ?, ?)
+                    """,
+                    (telegram_id, name[:64], payload),
+                )
+            await db.execute(
+                """
+                DELETE FROM indicator_favorites
+                WHERE telegram_id=? AND name IS NULL
+                """,
+                (telegram_id,),
+            )
+            await db.execute(
+                """
+                INSERT INTO indicator_favorites (telegram_id, name, indicators_json)
+                VALUES (?, NULL, ?)
+                """,
+                (telegram_id, payload),
+            )
+            await db.commit()
+
+    async def get_last_indicator_favorite(self, telegram_id: int) -> list[str] | None:
+        async with self.session() as db:
+            cur = await db.execute(
+                """
+                SELECT indicators_json FROM indicator_favorites
+                WHERE telegram_id=? AND name IS NULL
+                ORDER BY id DESC LIMIT 1
+                """,
+                (telegram_id,),
+            )
+            row = await cur.fetchone()
+            if not row:
+                return None
+            return json.loads(row["indicators_json"])
+
+    async def save_study_record(
+        self,
+        job_id: str,
+        telegram_id: int,
+        config_yaml: str,
+        payload: dict,
+    ) -> None:
+        import yaml as _yaml
+
+        cfg = _yaml.safe_load(config_yaml) or {}
+        dr = cfg.get("date_range") or {}
+        prop = cfg.get("prop_firm") or {}
+        pool = payload.get("indicator_pool") or cfg.get("meta", {}).get("indicator_pool") or []
+        async with self.session() as db:
+            await db.execute(
+                """
+                INSERT INTO studies (
+                  job_id, telegram_id, indicator_pool_json, instrument, primary_tf,
+                  date_from, date_to, prop_pack, mix_count, pass_count, finished_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                """,
+                (
+                    job_id,
+                    telegram_id,
+                    json.dumps(pool),
+                    str(cfg.get("instrument", "")),
+                    (cfg.get("timeframes") or {}).get("primary", ""),
+                    dr.get("start", ""),
+                    dr.get("end", ""),
+                    prop.get("pack_id") if prop.get("enabled") else None,
+                    int(payload.get("mix_count") or 0),
+                    int(payload.get("pass_count") or 0),
+                ),
+            )
+            for row in payload.get("rows") or []:
+                res = row.get("result") or {}
+                await db.execute(
+                    """
+                    INSERT INTO study_results (
+                      job_id, mix_label, mix_json, rank, prop_pass, net_pnl_pct, result_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        job_id,
+                        row.get("mix_label", ""),
+                        json.dumps(row.get("mix") or []),
+                        int(row.get("rank") or 0),
+                        1 if res.get("prop_pass") else 0,
+                        float(res.get("net_pnl_pct") or 0),
+                        json.dumps(res),
+                    ),
+                )
+            await db.commit()
+
+    async def list_study_results(self, job_id: str) -> list[dict]:
+        async with self.session() as db:
+            cur = await db.execute(
+                """
+                SELECT mix_label, mix_json, rank, prop_pass, net_pnl_pct, result_json
+                FROM study_results WHERE job_id=? ORDER BY rank ASC
+                """,
+                (job_id,),
+            )
+            rows = await cur.fetchall()
+            return [dict(r) for r in rows]
+
 
 def job_artifact_layout(job_id: str) -> dict[str, Path]:
     base = JOBS_ROOT / job_id

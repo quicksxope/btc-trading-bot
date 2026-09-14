@@ -267,6 +267,13 @@ async def pick_primary_tf(callback: CallbackQuery, state: FSMContext) -> None:
     draft = _load_draft(data)
     draft.primary_tf = callback.data.split(":")[-1]
     await state.update_data(**_save_draft(data, draft))
+    if draft.wizard_kind == "study":
+        from bot.handlers.study_wizard import show_study_pool
+
+        await push_step(state, "study_pool")
+        await show_study_pool(callback.message, draft)
+        await callback.answer()
+        return
     await push_step(state, "timeframe_context")
     await callback.message.edit_text(
         bold("Context timeframes") + " (multi-select)" + footer(draft),
@@ -557,10 +564,13 @@ async def run_backtest(callback: CallbackQuery, state: FSMContext, db: Database)
         yaml_text,
         chat_id=callback.message.chat.id,
     )
+    if draft.wizard_kind == "study" and draft.study_pool:
+        await db.save_indicator_favorite(callback.from_user.id, draft.study_pool)
     pos = await db.queue_position(job_id)
+    label = "Study queued" if draft.wizard_kind == "study" else "Queued"
     await callback.message.edit_text(job_card(job_id, "queued", pos))
     await state.clear()
-    await callback.answer("Queued")
+    await callback.answer(label)
 
 
 @router.callback_query(F.data == "wiz:save_preset")
@@ -639,6 +649,10 @@ async def wizard_back(callback: CallbackQuery, state: FSMContext, db: Database) 
             bold("Context timeframes") + footer(draft),
             reply_markup=context_tf_keyboard(draft.context_tfs),
         )
+    elif prev == "study_pool":
+        from bot.handlers.study_wizard import show_study_pool
+
+        await show_study_pool(callback.message, draft)
     elif prev == "strategy_mode":
         await callback.message.edit_text(
             bold("Step 6 — Strategy") + footer(draft),
