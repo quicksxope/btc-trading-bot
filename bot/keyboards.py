@@ -180,9 +180,19 @@ def prop_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="None (PnL only)", callback_data="wiz:prop:none")],
+            [
+                InlineKeyboardButton(
+                    text="Hola 1-Step $50K",
+                    callback_data="wiz:prop:load:holaprime_1step_50k",
+                ),
+                InlineKeyboardButton(
+                    text="TopStep $50K",
+                    callback_data="wiz:prop:load:topstep_50k_combine",
+                ),
+            ],
             [InlineKeyboardButton(text="Generic challenge", callback_data="wiz:prop:generic")],
             [InlineKeyboardButton(text="Custom %", callback_data="wiz:prop:custom")],
-            [InlineKeyboardButton(text="From template…", callback_data="wiz:prop:templates")],
+            [InlineKeyboardButton(text="More templates…", callback_data="wiz:prop:templates")],
             [InlineKeyboardButton(text="FTMO-like pack", callback_data="wiz:prop:ftmo_like")],
             nav_row(),
         ]
@@ -190,12 +200,16 @@ def prop_keyboard() -> InlineKeyboardMarkup:
 
 
 def prop_template_keyboard() -> InlineKeyboardMarkup:
-    from engine.catalog import list_prop_template_ids
+    from engine.catalog import list_prop_templates_for_wizard
 
-    rows = [
-        [InlineKeyboardButton(text=pid, callback_data=f"wiz:prop:load:{pid}")]
-        for pid in list_prop_template_ids()
-    ]
+    rows: list[list[InlineKeyboardButton]] = []
+    row: list[InlineKeyboardButton] = []
+    for pid, label in list_prop_templates_for_wizard():
+        text = label if len(label) <= 28 else label[:25] + "…"
+        row.append(InlineKeyboardButton(text=text, callback_data=f"wiz:prop:load:{pid}"))
+        if len(row) == 1:
+            rows.append(row)
+            row = []
     rows.append(nav_row())
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

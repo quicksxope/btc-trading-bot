@@ -59,3 +59,29 @@ def list_prop_template_ids() -> list[str]:
     from engine.prop_firm import PACKS_DIR
 
     return sorted(p.stem for p in PACKS_DIR.glob("*.yaml") if not p.name.startswith("."))
+
+
+_PROP_TEMPLATE_ORDER = {
+    "holaprime_1step_50k": 0,
+    "topstep_50k_combine": 1,
+    "holaprime_direct_50k": 2,
+    "holaprime_1step_10k": 3,
+    "holaprime_10k": 4,
+    "ftmo_like": 5,
+    "generic": 99,
+}
+
+
+def list_prop_templates_for_wizard() -> list[tuple[str, str]]:
+    """(pack_id, display label) sorted for Telegram template picker."""
+    from engine.prop_firm import load_prop_pack
+
+    ids = list_prop_template_ids()
+    ids.sort(key=lambda pid: (_PROP_TEMPLATE_ORDER.get(pid, 50), pid))
+    out: list[tuple[str, str]] = []
+    for pid in ids:
+        if pid == "generic":
+            continue
+        pack = load_prop_pack(pid)
+        out.append((pid, pack.label or pid))
+    return out

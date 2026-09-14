@@ -418,14 +418,24 @@ async def pick_prop(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.callback_query(F.data.startswith("wiz:prop:load:"))
 async def load_prop_template_cb(callback: CallbackQuery, state: FSMContext) -> None:
+    from bot.wizard_nav import push_step
+
     data = await state.get_data()
     draft = _load_draft(data)
     pack_id = callback.data.split(":")[-1]
+    if draft.instrument:
+        ok, msg = instrument_allowed(pack_id, draft.instrument)
+        if not ok:
+            await callback.answer(msg, show_alert=True)
+            return
     draft.prop_pack = pack_id
     _apply_prop_template(draft, pack_id)
     await state.update_data(**_save_draft(data, draft))
+    pack = load_prop_pack(pack_id)
+    title = pack.label or pack_id
+    await push_step(state, "prop_params")
     await callback.message.edit_text(
-        f"Template {code(pack_id)}" + footer(draft),
+        bold(title) + "\nAdjust % or Continue (balance preset to $50k if set)." + footer(draft),
         reply_markup=prop_custom_keyboard(),
     )
     await callback.answer()
@@ -437,6 +447,8 @@ def _apply_prop_template(draft: BacktestDraft, pack_id: str) -> None:
     draft.prop_max_dd_pct = pack.max_drawdown_pct
     draft.prop_profit_target_pct = pack.profit_target_pct
     draft.prop_min_trading_days = pack.min_trading_days
+    if pack.initial_balance_usd is not None:
+        draft.initial_balance = float(pack.initial_balance_usd)
 
 
 @router.callback_query(F.data.startswith("wiz:propp:"))

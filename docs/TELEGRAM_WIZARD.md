@@ -22,7 +22,8 @@ Refs examples: `primary_RSI_value`, `primary_close`, `cross_above(primary_WAVETR
 
 ## Custom prop (%)
 
-- **Custom %** or **From template** loads YAML from `configs/prop_firms/`, then adjust daily / max DD / profit target / min days.
+- **Hola 1-Step $50K** / **TopStep $50K** shortcuts, or **More templates…** for all packs in `configs/prop_firms/`.
+- Templates set suggested balance ($50k) and show live USD reference on review; engine still evaluates **%** rules (trailing/consistency Phase B).
 - Hola packs appear in templates (~% rules); full USD/consistency in a later engine phase.
 
 ## 30m data

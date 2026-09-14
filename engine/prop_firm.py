@@ -22,12 +22,15 @@ class PropPack:
     min_trading_days: int | None
     allowed_instruments: list[str]
     description: str = ""
+    label: str = ""
+    initial_balance_usd: float | None = None
+    reference_usd: dict | None = None
 
 
 def load_prop_pack(pack_id: str) -> PropPack:
     path = PACKS_DIR / f"{pack_id}.yaml"
     if path.exists():
-        raw = yaml.safe_load(path.read_text())
+        raw = yaml.safe_load(path.read_text()) or {}
         return PropPack(
             pack_id=pack_id,
             daily_loss_pct=raw.get("daily_loss_pct", 5),
@@ -36,6 +39,9 @@ def load_prop_pack(pack_id: str) -> PropPack:
             min_trading_days=raw.get("min_trading_days"),
             allowed_instruments=raw.get("allowed_instruments", []),
             description=raw.get("description", ""),
+            label=raw.get("label") or pack_id,
+            initial_balance_usd=raw.get("initial_balance_usd"),
+            reference_usd=raw.get("reference_usd"),
         )
     return PropPack(
         pack_id=pack_id,

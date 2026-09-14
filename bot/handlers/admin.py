@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from html import escape
+
 import yaml
 from aiogram import Router
 from aiogram.filters import Command
@@ -55,13 +57,22 @@ async def data_status(message: Message, settings: Settings) -> None:
         lines.append(f"• {iid}: {meta.get('label', iid)}")
     lines.append("")
     lines.append("<b>Prop packs</b> (configs/prop_firms/)")
+    wizard_packs = {
+        "ftmo_like",
+        "holaprime_1step_50k",
+        "holaprime_direct_50k",
+        "topstep_50k_combine",
+    }
     for path in sorted(PACKS_DIR.glob("*.yaml")):
-        raw = yaml.safe_load(path.read_text()) or {}
-        desc = (raw.get("description") or path.stem)[:120]
-        wizard = "wizard" if path.stem in ("generic", "ftmo_like") else "preset-only"
-        if path.stem.startswith("holaprime_"):
-            wizard = "preset-only (Phase B for wizard)"
-        lines.append(f"• <code>{path.stem}</code> [{wizard}] — {desc}")
+        if path.name.startswith("."):
+            continue
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        label = raw.get("label") or path.stem
+        desc = (raw.get("description") or "")[:100]
+        wizard = "wizard" if path.stem in wizard_packs else "YAML/preset"
+        lines.append(f"• {escape(label)} <code>{path.stem}</code> [{wizard}]")
+        if desc:
+            lines.append(f"  {escape(desc)}")
     lines.append("")
     lines.append(
         "<i>Hola: use configs/examples/cipher_b_holaprime_1step_30m.yaml → My presets.</i>"

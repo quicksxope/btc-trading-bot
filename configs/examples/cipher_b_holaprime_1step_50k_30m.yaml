@@ -1,0 +1,26 @@
+# Hola 1-Step $50K + Cipher B @ 30m — save via My presets or CLI.
+instrument: BTC_PERP
+asset_class: crypto_perp
+date_range:
+  start: "2024-01-01"
+  end: "2024-12-31"
+session:
+  id: all_day
+  use_for_trading: true
+  use_for_accounting: true
+timeframes:
+  primary: 30m
+  context: []
+strategy:
+  mode: preset
+  preset: cipher_b
+prop_firm:
+  enabled: true
+  pack_id: holaprime_1step_50k
+  daily_loss_pct: 3.0
+  max_drawdown_pct: 6.0
+  profit_target_pct: 10.0
+  min_trading_days: 2
+execution:
+  fill: next_bar_open
+  initial_balance: 50000
