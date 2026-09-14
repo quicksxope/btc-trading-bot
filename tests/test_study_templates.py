@@ -14,6 +14,7 @@ def test_study_summary_includes_trade_count():
             "trade_count": 17,
             "profit_factor": 1.2,
             "prop_pass": True,
+            "trading_days": 4,
         },
         "rows": [
             {

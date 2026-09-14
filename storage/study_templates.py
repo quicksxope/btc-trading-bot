@@ -8,7 +8,10 @@ from engine.models import BacktestResult
 
 
 def _pnl_trades(br: BacktestResult, *, pnl_decimals: int = 2) -> str:
-    return f"{br.net_pnl_pct:+.{pnl_decimals}f}% · {br.trade_count} trades"
+    base = f"{br.net_pnl_pct:+.{pnl_decimals}f}% · {br.trade_count} trades"
+    if br.trade_count and br.trading_days:
+        base += f" ({br.trading_days}d w/ exits)"
+    return base
 
 
 def _signal_hint(row: dict) -> str:
@@ -48,10 +51,15 @@ def study_result_summary(job_id: str, payload: dict, instrument: str, primary_tf
 
     lines.append("")
     lines.append(
-        "<i>Trades = closed SL/TP legs. Hola SL/TP often ~5 losses ($1k) "
-        "then MAX_LOSS floor halts new entries — counts can match across mixes.</i>"
+        "<i>Date range = full history (e.g. 6mo). "
+        "Trades = closed SL/TP only — Hola ~$1k risk × ~5 SL ≈ max-loss floor, "
+        "then no new entries for the rest of the period.</i>"
     )
-    lines.append("<b>Ranking</b> (PASS first, then PnL; sig = signal bars long/short):")
+    lines.append(
+        "<i>sig L/S = bars in long/short state (rule hold), not entry count — "
+        "mixes can differ a lot but still show 5 closed trades.</i>"
+    )
+    lines.append("<b>Ranking</b> (PASS first, then PnL):")
     for row in rows[:10]:
         res = row.get("result") or {}
         br = BacktestResult.model_validate(res)
