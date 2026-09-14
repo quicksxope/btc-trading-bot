@@ -11,6 +11,14 @@ def _pnl_trades(br: BacktestResult, *, pnl_decimals: int = 2) -> str:
     return f"{br.net_pnl_pct:+.{pnl_decimals}f}% · {br.trade_count} trades"
 
 
+def _signal_hint(row: dict) -> str:
+    lo = row.get("signal_bars_long")
+    sh = row.get("signal_bars_short")
+    if lo is None and sh is None:
+        return ""
+    return f" · sig L{lo}/S{sh} bars"
+
+
 def study_result_summary(job_id: str, payload: dict, instrument: str, primary_tf: str) -> str:
     rows = payload.get("rows") or []
     pool = payload.get("indicator_pool") or []
@@ -39,13 +47,17 @@ def study_result_summary(job_id: str, payload: dict, instrument: str, primary_tf
             )
 
     lines.append("")
-    lines.append("<b>Ranking</b> (PASS first, then PnL):")
+    lines.append(
+        "<i>Trades = closed SL/TP legs. Hola SL/TP often ~5 losses ($1k) "
+        "then MAX_LOSS floor halts new entries — counts can match across mixes.</i>"
+    )
+    lines.append("<b>Ranking</b> (PASS first, then PnL; sig = signal bars long/short):")
     for row in rows[:10]:
         res = row.get("result") or {}
         br = BacktestResult.model_validate(res)
         badge = "PASS" if br.prop_pass else "FAIL"
         lines.append(
             f"{row.get('rank', '?')}. {escape(row.get('mix_label', ''))} — "
-            f"{badge} {_pnl_trades(br)}"
+            f"{badge} {_pnl_trades(br)}{_signal_hint(row)}"
         )
     return "\n".join(lines)

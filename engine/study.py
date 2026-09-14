@@ -8,6 +8,7 @@ from itertools import combinations
 from typing import Any
 
 from engine.backtest import load_backtest_frames, simulate_backtest
+from engine.strategy import build_signals
 from engine.catalog import indicator_meta, load_rule_templates, sweep_template_id
 from engine.models import BacktestConfig, BacktestResult, CustomRulesV2, StrategyConfig
 
@@ -24,6 +25,20 @@ def indicator_subsets(pool: list[str]) -> list[tuple[str, ...]]:
 
 def mix_label(mix: tuple[str, ...]) -> str:
     return "+".join(mix)
+
+
+def signal_stats(
+    strategy: StrategyConfig,
+    primary,
+    context_frames,
+    context_idx,
+) -> dict[str, int]:
+    sig = build_signals(strategy, primary, context_frames, context_idx)
+    return {
+        "signal_bars_long": int((sig == 1).sum()),
+        "signal_bars_short": int((sig == -1).sum()),
+        "signal_flips": int((sig.diff().fillna(0) != 0).sum()),
+    }
 
 
 def _spec_key(spec: dict) -> str:
@@ -144,6 +159,7 @@ def run_indicator_study(
         cfg = config.model_copy(deep=True)
         cfg.strategy = strategy_for_mix(mix)
         cfg.timeframes = cfg.timeframes.model_copy(update={"context": []})
+        stats = signal_stats(cfg.strategy, primary, context_frames, context_idx)
         result, _, _, _, _ = simulate_backtest(
             cfg, primary, context_frames, context_idx, profile
         )
@@ -152,6 +168,7 @@ def run_indicator_study(
                 "mix": list(mix),
                 "mix_label": mix_label(mix),
                 "result": result.model_dump(),
+                **stats,
             }
         )
 

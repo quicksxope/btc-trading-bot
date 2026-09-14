@@ -19,6 +19,8 @@ def test_study_summary_includes_trade_count():
             {
                 "rank": 1,
                 "mix_label": "RSI",
+                "signal_bars_long": 100,
+                "signal_bars_short": 80,
                 "result": {
                     "net_pnl_pct": 4.5,
                     "max_drawdown_pct": 2,
@@ -33,3 +35,4 @@ def test_study_summary_includes_trade_count():
     text = study_result_summary("abc123", payload, "BTC_PERP", "30m")
     assert "17 trades" in text
     assert "4.50%" in text
+    assert "sig L100/S80" in text
