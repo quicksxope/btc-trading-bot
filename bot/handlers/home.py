@@ -15,9 +15,11 @@ from bot.menu import help_message_html
 from bot.review_text import hola_result_disclaimer
 from bot.fsm.validation import BacktestDraft
 from bot.keyboards import asset_class_keyboard, home_keyboard
+from bot.keyboards_leaderboard import leaderboard_keyboard
 from engine.models import BacktestResult
 from storage import templates
 from storage.db import Database
+from storage.job_rank import leaderboard_text, rank_among_jobs
 
 router = Router()
 
@@ -81,15 +83,14 @@ async def status_cb(callback: CallbackQuery, db: Database) -> None:
 
 @router.callback_query(F.data == "home:last")
 async def last_cb(callback: CallbackQuery, db: Database) -> None:
-    job = await db.last_done_job(callback.from_user.id)
-    if not job:
+    jobs = await db.list_done_jobs(callback.from_user.id, limit=30)
+    if not jobs:
         await callback.answer("No completed runs yet", show_alert=True)
         return
-    result = BacktestResult.model_validate(json.loads(job["result_json"]))
-    sem = f"{job['id']} | see config in files"
+    text = leaderboard_text(jobs, limit=10)
     await callback.message.edit_text(
-        templates.result_summary(job["id"], result, sem),
-        reply_markup=home_keyboard(),
+        text,
+        reply_markup=leaderboard_keyboard(jobs, limit=10),
     )
     await callback.answer()
 
@@ -157,12 +158,12 @@ async def cmd_status(message: Message, db: Database) -> None:
 
 @router.message(Command("last"))
 async def cmd_last(message: Message, db: Database) -> None:
-    job = await db.last_done_job(message.from_user.id)
-    if not job:
+    jobs = await db.list_done_jobs(message.from_user.id, limit=30)
+    if not jobs:
         await message.answer("No completed runs.")
         return
-    result = BacktestResult.model_validate(json.loads(job["result_json"]))
-    await message.answer(templates.result_summary(job["id"], result, job["id"]))
+    text = leaderboard_text(jobs, limit=10)
+    await message.answer(text, reply_markup=leaderboard_keyboard(jobs, limit=10))
 
 
 @router.message(Command("cancel"))
@@ -189,6 +190,10 @@ async def deliver_job_results(bot, db: Database, job_id: str) -> None:
                 job["compare_job_id"],
                 result.net_pnl_pct - prev_r.net_pnl_pct,
                 result.max_drawdown_pct - prev_r.max_drawdown_pct,
+                prev_prop_pass=prev_r.prop_pass,
+                cur_prop_pass=result.prop_pass,
+                prev_fail_reason=prev_r.prop_fail_reason,
+                cur_fail_reason=result.prop_fail_reason,
             )
     raw_cfg = yaml.safe_load(job["config_yaml"]) if job.get("config_yaml") else {}
     prop = (raw_cfg or {}).get("prop_firm") or {}
@@ -204,6 +209,11 @@ async def deliver_job_results(bot, db: Database, job_id: str) -> None:
         sem_parts.append(f"prop={pack_id}")
     sem = " | ".join(sem_parts) if sem_parts else job_id[:80]
     footer_note = hola_result_disclaimer(str(pack_id) if pack_id else None)
+    recent = await db.list_done_jobs(job["telegram_id"], limit=30)
+    rank = rank_among_jobs(job, recent)
+    if rank is not None and len(recent) > 1:
+        rank_line = f"<i>Leaderboard rank: #{rank} of {min(len(recent), 30)} (PASS first, then PnL).</i>"
+        footer_note = f"{rank_line}\n{footer_note}" if footer_note else rank_line
     if preset == "cipher_b" and primary_tf and primary_tf != "30m":
         hint = "<i>Cipher B: 30m recommended (15m resample in DB).</i>"
         footer_note = f"{footer_note}\n{hint}" if footer_note else hint

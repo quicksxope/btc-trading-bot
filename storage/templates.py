@@ -69,9 +69,19 @@ def compare_block(
     prev_job: str,
     delta_pnl: float,
     delta_dd: float,
+    *,
+    prev_prop_pass: bool | None = None,
+    cur_prop_pass: bool | None = None,
+    prev_fail_reason: str | None = None,
+    cur_fail_reason: str | None = None,
 ) -> str:
-    return (
-        f"<b>Compare vs</b> <code>{escape(prev_job)}</code>\n"
-        f"Δ PnL: {delta_pnl:+.2f} pp\n"
-        f"Δ Max DD: {delta_dd:+.2f} pp"
-    )
+    lines = [
+        f"<b>Compare vs</b> <code>{escape(prev_job)}</code>",
+    ]
+    if prev_prop_pass is not None and cur_prop_pass is not None:
+        prev_s = "PASS" if prev_prop_pass else f"FAIL ({prev_fail_reason or '—'})"
+        cur_s = "PASS" if cur_prop_pass else f"FAIL ({cur_fail_reason or '—'})"
+        lines.append(f"Prop: {prev_s} → {cur_s}")
+    lines.append(f"Δ PnL: {delta_pnl:+.2f} pp")
+    lines.append(f"Δ Max DD: {delta_dd:+.2f} pp")
+    return "\n".join(lines)

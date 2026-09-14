@@ -52,3 +52,39 @@ indicators:
       smoothing: { type: int, default: 3, min: 1, max: 20 }
       signal_smoothing: { type: int, default: 3, min: 1, max: 20 }
     timeframes: [primary, context]
+
+  STOCHRSI:
+    label: Stochastic RSI
+    outputs: [k, d]
+    default_output: k
+    params:
+      rsi_period: { type: int, default: 14, min: 2, max: 50 }
+      stoch_period: { type: int, default: 14, min: 2, max: 50 }
+      k_smooth: { type: int, default: 3, min: 1, max: 20 }
+      d_smooth: { type: int, default: 3, min: 1, max: 20 }
+    timeframes: [primary, context]
+
+  ADX:
+    label: ADX / DMI
+    outputs: [adx, plus_di, minus_di]
+    default_output: adx
+    params:
+      period: { type: int, default: 14, min: 2, max: 50 }
+    timeframes: [primary, context]
+
+  FIB:
+    label: Fibonacci retrace
+    outputs: [level_382, level_618, near_382, near_618]
+    default_output: level_618
+    params:
+      leg_lookback: { type: int, default: 20, min: 5, max: 200 }
+      band_pct: { type: float, default: 0.15, min: 0.02, max: 0.5 }
+    timeframes: [primary, context]
+
+  LIQUIDITYSWEEP:
+    label: Liquidity sweep
+    outputs: [sweep_bull, sweep_bear]
+    default_output: sweep_bull
+    params:
+      pool_lookback: { type: int, default: 20, min: 5, max: 200 }
+    timeframes: [primary, context]

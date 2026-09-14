@@ -26,3 +26,31 @@ templates:
     short_when: "primary_close < primary_EMA_value"
     requires_indicators:
       - { name: EMA, timeframe: primary, params: { period: 20 } }
+
+  adx_trend_long:
+    label: "Trend: ADX>25 & +DI>-DI"
+    long_when: "primary_ADX_adx > 25 and primary_ADX_plus_di > primary_ADX_minus_di"
+    short_when: "primary_ADX_adx > 25 and primary_ADX_minus_di > primary_ADX_plus_di"
+    requires_indicators:
+      - { name: ADX, timeframe: primary, params: { period: 14 } }
+
+  stoch_oversold_long:
+    label: "Long StochRSI K < 20"
+    long_when: "primary_STOCHRSI_k < 20"
+    short_when: "primary_STOCHRSI_k > 80"
+    requires_indicators:
+      - { name: STOCHRSI, timeframe: primary, params: {} }
+
+  fib_618_long:
+    label: "Long near Fib 0.618"
+    long_when: "primary_FIB_near_618 > 0"
+    short_when: "primary_close < primary_FIB_level_618"
+    requires_indicators:
+      - { name: FIB, timeframe: primary, params: { leg_lookback: 20 } }
+
+  sweep_bull_long:
+    label: "Long after bull liquidity sweep"
+    long_when: "primary_LIQUIDITYSWEEP_sweep_bull > 0"
+    short_when: "primary_LIQUIDITYSWEEP_sweep_bear > 0"
+    requires_indicators:
+      - { name: LIQUIDITYSWEEP, timeframe: primary, params: { pool_lookback: 20 } }

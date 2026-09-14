@@ -23,6 +23,7 @@ Refs examples: `primary_RSI_value`, `primary_close`, `cross_above(primary_WAVETR
 ## Custom prop (%)
 
 - **Hola 1-Step $50K** / **TopStep $50K** shortcuts, or **More templates…** for all packs in `configs/prop_firms/`.
+- **Last results** / `/last`: leaderboard — **prop PASS first**, then net PnL; tap a job for detail.
 - Templates with `engine: usd` run **Phase B** (daily/max loss in USD, Hola consistency, TopStep 50% best-day vs target). Signal backtest is still flip-at-close — not per-trade SL/TP sizing.
 - Hola packs appear in templates (~% rules); full USD/consistency in a later engine phase.
 

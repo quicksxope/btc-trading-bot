@@ -205,6 +205,48 @@ class Database:
             row = await cur.fetchone()
             return dict(row) if row else None
 
+    async def list_done_jobs(self, telegram_id: int, limit: int = 30) -> list[dict]:
+        async with self.session() as db:
+            cur = await db.execute(
+                """
+                SELECT * FROM jobs WHERE telegram_id=? AND status='done'
+                  AND result_json IS NOT NULL
+                ORDER BY finished_at DESC LIMIT ?
+                """,
+                (telegram_id, limit),
+            )
+            rows = await cur.fetchall()
+            return [dict(r) for r in rows]
+
+    async def previous_done_job(self, telegram_id: int, before_job_id: str) -> dict | None:
+        async with self.session() as db:
+            cur = await db.execute(
+                "SELECT finished_at FROM jobs WHERE id=? AND telegram_id=?",
+                (before_job_id, telegram_id),
+            )
+            row = await cur.fetchone()
+            if not row or not row["finished_at"]:
+                cur2 = await db.execute(
+                    """
+                    SELECT * FROM jobs WHERE telegram_id=? AND status='done'
+                      AND id != ? AND result_json IS NOT NULL
+                    ORDER BY finished_at DESC LIMIT 1
+                    """,
+                    (telegram_id, before_job_id),
+                )
+            else:
+                cur2 = await db.execute(
+                    """
+                    SELECT * FROM jobs WHERE telegram_id=? AND status='done'
+                      AND id != ? AND result_json IS NOT NULL
+                      AND finished_at < ?
+                    ORDER BY finished_at DESC LIMIT 1
+                    """,
+                    (telegram_id, before_job_id, row["finished_at"]),
+                )
+            prev = await cur2.fetchone()
+            return dict(prev) if prev else None
+
     async def register_artifact(self, job_id: str, kind: str, path: str) -> None:
         async with self.session() as db:
             await db.execute(
