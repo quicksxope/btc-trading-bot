@@ -1,7 +1,10 @@
 label: "Hola Direct $10K"
 description: >-
-  Hola Prime Direct $10K (approx % rules). Full USD caps, consistency, and SL/TP
-  parity — coming in a later bot update (Phase B).
+  Hola Direct $10K — trailing EOD max loss, 20% consistency (USD engine).
+engine: usd
+max_loss_mode: trailing_eod
+consistency_pct: 20
+consistency_rule: hola_best_day
 initial_balance_usd: 10000
 reference_usd:
   daily_loss: 300

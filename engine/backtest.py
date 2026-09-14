@@ -11,7 +11,8 @@ from engine.data_loader import load_bars
 from engine.instruments import load_instrument_profile
 from engine.models import BacktestConfig, BacktestResult, InstrumentProfile
 from engine.mtf import align_context_to_primary, resample_bars
-from engine.prop_firm import PropState, evaluate_prop, merge_prop_config
+from engine.prop_firm import PropState, evaluate_prop_backtest, load_prop_pack, merge_prop_config
+from engine.prop_usd import UsdBarGate, resolve_usd_spec
 from engine.session import is_in_session, session_day_key
 from engine.strategy import build_signals
 
@@ -100,6 +101,11 @@ def run_backtest(
     daily_pnl_pct: dict[str, float] = {}
     day_start_equity: dict[str, float] = {}
     breach_log: list[str] = []
+    usd_spec = resolve_usd_spec(prop, config.execution.initial_balance) if prop.enabled else None
+    usd_gate = UsdBarGate(eod_peak=config.execution.initial_balance)
+    usd_gate.day_start_equity = config.execution.initial_balance
+    last_dk: str | None = None
+    prev_mark = config.execution.initial_balance
 
     n = len(primary)
     prog("Simulating", 50)
@@ -111,8 +117,13 @@ def run_backtest(
         row = primary.iloc[i]
         ts = row["timestamp"].to_pydatetime()
         dk = _day_key(ts, config)
+        if last_dk is not None and dk != last_dk:
+            usd_gate.eod_peak = max(usd_gate.eod_peak, prev_mark)
+            usd_gate.day_start_equity = equity
+            usd_gate.daily_blocked = False
         if dk not in day_start_equity:
             day_start_equity[dk] = equity
+        last_dk = dk
 
         o, h, l, c = float(row["open"]), float(row["high"]), float(row["low"]), float(row["close"])
         fill_price = o if config.execution.fill == "next_bar_open" and i > 0 else c
@@ -135,8 +146,10 @@ def run_backtest(
         if not can_enter and position == 0:
             target_dir = 0
 
+        can_enter_usd = usd_gate.can_enter() if usd_spec else True
+
         if i > 0:
-            if position == 0 and target_dir != 0 and can_enter:
+            if position == 0 and target_dir != 0 and can_enter and can_enter_usd:
                 position = target_dir
                 entry_price = fill_price
                 fee = abs(c * profile.contract_size * profile.fee_bps / 10000)
@@ -155,7 +168,9 @@ def run_backtest(
                         "side": "long" if position > 0 else "short",
                     }
                 )
-                position = target_dir if (target_dir != 0 and can_enter) else 0
+                position = (
+                    target_dir if (target_dir != 0 and can_enter and can_enter_usd) else 0
+                )
                 if position != 0:
                     entry_price = fill_price
 
@@ -171,13 +186,21 @@ def run_backtest(
 
         daily_pnl_pct[dk] = (mark - day_start_equity[dk]) / day_start_equity[dk] * 100
 
-        if prop.enabled:
+        if usd_spec:
+            breach = usd_gate.check(usd_spec, mark)
+            if breach:
+                msg = f"{ts} {breach}"
+                if not breach_log or breach_log[-1] != msg:
+                    breach_log.append(msg)
+
+        if prop.enabled and not usd_spec:
             if daily_pnl_pct[dk] < -prop.daily_loss_pct:
                 breach_log.append(f"{dk} DAILY_LOSS {daily_pnl_pct[dk]:.2f}%")
             if dd > prop.max_drawdown_pct:
                 breach_log.append(f"{ts} MAX_DD {dd:.2f}%")
 
         equity_rows.append({"timestamp": ts, "equity": mark, "drawdown_pct": dd})
+        prev_mark = mark
 
     if position != 0:
         last = primary.iloc[-1]
@@ -204,9 +227,16 @@ def run_backtest(
 
     prog("Prop evaluation", 90)
     eq_list = [r["equity"] for r in equity_rows]
-    prop_state: PropState = evaluate_prop(
-        daily_pnl_pct, eq_list, config.execution.initial_balance, prop
+    equity_df = pd.DataFrame(equity_rows)
+    prop_state: PropState = evaluate_prop_backtest(
+        prop,
+        daily_pnl_pct,
+        eq_list,
+        equity_df,
+        pd.DataFrame(trades),
+        config.execution.initial_balance,
     )
+    pack_meta = load_prop_pack(prop.pack_id)
 
     result = BacktestResult(
         net_pnl_pct=net_pnl_pct,
@@ -216,12 +246,13 @@ def run_backtest(
         profit_factor=min(profit_factor, 99.0),
         prop_pass=prop_state.pass_prop,
         prop_fail_reason=prop_state.fail_reason,
+        prop_detail=prop_state.detail,
+        prop_engine=pack_meta.engine if prop.enabled else "off",
         worst_daily_loss_pct=prop_state.worst_daily_loss_pct,
         trading_days=prop_state.trading_days,
         equity_final=equity_final,
     )
 
-    equity_df = pd.DataFrame(equity_rows)
     trades_df = pd.DataFrame(trades)
     daily_df = pd.DataFrame(
         [{"day": k, "pnl_pct": v} for k, v in sorted(daily_pnl_pct.items())]

@@ -61,13 +61,10 @@ def review_summary_html(draft: BacktestDraft) -> str:
             if draft.prop_min_trading_days is not None:
                 extra += f" / min days {draft.prop_min_trading_days}"
             lines.append(f"Engine limits: {extra}")
-        if draft.prop_pack and draft.prop_pack.startswith(HOLA_PACK_PREFIX):
+        if pack.engine == "usd":
             lines.append(
-                "<i>Hola: ~% only — USD risk/trade, consistency, trailing EOD in Phase B.</i>"
-            )
-        elif draft.prop_pack and draft.prop_pack.startswith(TOPSTEP_PACK_PREFIX):
-            lines.append(
-                "<i>TopStep: ~% approx — trailing MLL EOD & 50% consistency in Phase B.</i>"
+                "<i>USD prop engine: daily/max loss USD, consistency where configured. "
+                "Not SL/TP per-trade sizing yet.</i>"
             )
 
     lines.append(f"Balance: ${draft.initial_balance:,.0f}")
@@ -76,8 +73,13 @@ def review_summary_html(draft: BacktestDraft) -> str:
 
 
 def hola_result_disclaimer(pack_id: str | None) -> str | None:
-    if not pack_id or not pack_id.startswith(HOLA_PACK_PREFIX):
+    if not pack_id:
         return None
-    return (
-        "<i>Hola pack: approximate % rules only — not full USD/consistency/SL·TP (Phase B).</i>"
-    )
+    from engine.prop_firm import load_prop_pack
+
+    pack = load_prop_pack(pack_id)
+    if pack.engine == "usd":
+        return "<i>USD prop rules applied; per-trade risk/SL·TP still signal-flip model.</i>"
+    if pack_id.startswith(HOLA_PACK_PREFIX) or pack_id.startswith(TOPSTEP_PACK_PREFIX):
+        return "<i>Legacy % prop pack — pick a template with USD engine for Phase B rules.</i>"
+    return None

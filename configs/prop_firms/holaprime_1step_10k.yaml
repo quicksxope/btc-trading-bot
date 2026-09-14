@@ -1,7 +1,8 @@
 label: "Hola 1-Step Prime $10K"
 description: >-
-  Hola Prime 1-Step $10K challenge (approx %). Profit target 10%, static max loss 6%.
-  Consistency & USD intraday rules — Phase B.
+  Hola Prime 1-Step $10K — USD engine, static max loss 6%, target 10%.
+engine: usd
+max_loss_mode: static
 initial_balance_usd: 10000
 reference_usd:
   profit_target: 1000

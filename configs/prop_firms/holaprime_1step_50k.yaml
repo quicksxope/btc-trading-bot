@@ -1,8 +1,8 @@
 label: "Hola 1-Step Prime $50K"
 description: >-
-  Hola Prime 1-Step Prime $50K challenge (~% in engine). Target $5,000 (10%),
-  daily loss $1,500 (3%), static max loss $3,000 (6%), min 2 trading days.
-  USD risk/trade, consistency, news flags — Phase B.
+  Hola Prime 1-Step $50K — USD engine. Target $5,000, daily $1,500, static floor $47,000.
+engine: usd
+max_loss_mode: static
 daily_loss_pct: 3.0
 max_drawdown_pct: 6.0
 profit_target_pct: 10.0

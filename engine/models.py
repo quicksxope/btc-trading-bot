@@ -119,6 +119,8 @@ class BacktestResult(BaseModel):
     profit_factor: float
     prop_pass: bool
     prop_fail_reason: str | None = None
+    prop_detail: str | None = None
+    prop_engine: str = "pct"
     worst_daily_loss_pct: float = 0.0
     trading_days: int = 0
     equity_final: float = 0.0

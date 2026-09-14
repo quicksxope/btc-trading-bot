@@ -50,9 +50,12 @@ def result_summary(
         "",
         f"Worst daily: {result.worst_daily_loss_pct:.2f}%",
         f"Trading days: {result.trading_days}",
-        "",
-        f"<i>{escape(semantics)}</i>",
     ]
+    if result.prop_engine and result.prop_engine not in ("off", "pct"):
+        lines.append(f"Prop engine: {escape(result.prop_engine)}")
+    if result.prop_detail:
+        lines.append(f"<i>{escape(result.prop_detail)}</i>")
+    lines.extend(["", f"<i>{escape(semantics)}</i>"])
     if compare_delta:
         lines.extend(["", compare_delta])
     if footer_note:

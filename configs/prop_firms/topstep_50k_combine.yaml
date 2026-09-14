@@ -1,18 +1,19 @@
 label: "TopStep Combine $50K"
 description: >-
-  TopStep Trading Combine $50K (~% approx). Profit target $3,000 (6%),
-  trailing max loss $2,000 (4%), daily loss limit $1,000 (2%) if enabled.
-  Trailing EOD MLL & 50% consistency objective — Phase B.
+  TopStep $50K Combine — trailing MLL $2,000 (locks at $50k), DLL $1,000, target $3,000, 50% consistency.
+engine: usd
+max_loss_mode: trailing_eod
+mll_lock_at_initial: true
+consistency_rule: topstep_target_ratio
+consistency_target_ratio: 0.5
 daily_loss_pct: 2.0
 max_drawdown_pct: 4.0
 profit_target_pct: 6.0
-min_trading_days: null
 initial_balance_usd: 50000
 reference_usd:
   profit_target: 3000
   daily_loss: 1000
   max_loss: 2000
-  consistency_best_day_pct_of_target: 50
 allowed_instruments:
   - NASDAQ_CFD
   - SPX500_CFD

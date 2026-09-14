@@ -25,6 +25,13 @@ class PropPack:
     label: str = ""
     initial_balance_usd: float | None = None
     reference_usd: dict | None = None
+    engine: str = "pct"
+    max_loss_mode: str = "static"
+    mll_lock_at_initial: bool = False
+    consistency_pct: float | None = None
+    consistency_rule: str = "none"
+    consistency_target_ratio: float = 0.5
+    usd_rules: dict | None = None
 
 
 def load_prop_pack(pack_id: str) -> PropPack:
@@ -42,6 +49,13 @@ def load_prop_pack(pack_id: str) -> PropPack:
             label=raw.get("label") or pack_id,
             initial_balance_usd=raw.get("initial_balance_usd"),
             reference_usd=raw.get("reference_usd"),
+            engine=str(raw.get("engine", "pct")),
+            max_loss_mode=str(raw.get("max_loss_mode", "static")),
+            mll_lock_at_initial=bool(raw.get("mll_lock_at_initial", False)),
+            consistency_pct=raw.get("consistency_pct"),
+            consistency_rule=str(raw.get("consistency_rule", "none")),
+            consistency_target_ratio=float(raw.get("consistency_target_ratio", 0.5)),
+            usd_rules=raw.get("usd_rules"),
         )
     return PropPack(
         pack_id=pack_id,
@@ -89,6 +103,26 @@ class PropState:
     fail_reason: str | None = None
     worst_daily_loss_pct: float = 0.0
     trading_days: int = 0
+    detail: str | None = None
+
+
+def evaluate_prop_backtest(
+    prop: PropFirmConfig,
+    daily_pnl_pct: dict[str, float],
+    equity_curve: list[float],
+    equity_df,
+    trades_df,
+    initial: float,
+) -> PropState:
+    """Pct engine or USD Phase B depending on pack template."""
+    if not prop.enabled:
+        return PropState(pass_prop=True, trading_days=len(daily_pnl_pct))
+    pack = load_prop_pack(prop.pack_id)
+    if pack.engine == "usd":
+        from engine.prop_usd import evaluate_prop_usd
+
+        return evaluate_prop_usd(prop, equity_df, trades_df, initial)
+    return evaluate_prop(daily_pnl_pct, equity_curve, initial, prop)
 
 
 def evaluate_prop(
