@@ -208,9 +208,12 @@ async def sb_done(callback: CallbackQuery, state: FSMContext) -> None:
     except ValidationError as e:
         await callback.answer(str(e), show_alert=True)
         return
-    await push_step(state, "prop")
+    from bot import wizard_steps
+    from bot.keyboards import session_keyboard
+
+    await push_step(state, "session")
     await callback.message.edit_text(
-        bold("Step 7 — Prop firm") + footer(draft),
-        reply_markup=prop_keyboard(),
+        wizard_steps.step_session_title() + footer(draft),
+        reply_markup=session_keyboard(draft),
     )
     await callback.answer()

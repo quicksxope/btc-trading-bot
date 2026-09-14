@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from bot.formatting import bold, footer
 from bot.fsm.validation import BacktestDraft, study_mix_count
 from bot.handlers.wizard import _load_draft, _save_draft
-from bot.keyboards import nav_row, prop_keyboard, study_pool_keyboard
+from bot.keyboards import nav_row, session_keyboard, study_pool_keyboard
 from bot.wizard_nav import push_step
 from storage.db import Database
 
@@ -78,10 +78,14 @@ async def study_pool_done(callback: CallbackQuery, state: FSMContext) -> None:
         return
     draft.context_tfs = []
     await state.update_data(**_save_draft(data, draft))
-    await push_step(state, "prop")
+    from bot import wizard_steps
+
+    await push_step(state, "session")
     await callback.message.edit_text(
-        bold("Step — Prop firm") + "\nStudy uses same prop for every mix." + footer(draft),
-        reply_markup=prop_keyboard(),
+        wizard_steps.step_session_title()
+        + "\nStudy: session sama untuk semua mix."
+        + footer(draft),
+        reply_markup=session_keyboard(draft),
     )
     await callback.answer()
 

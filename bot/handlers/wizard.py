@@ -11,9 +11,16 @@ from html import escape as html_escape
 import yaml
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
-from bot.fsm.validation import BacktestDraft, ValidationError, draft_to_config
+from bot.fsm.validation import (
+    BacktestDraft,
+    ValidationError,
+    apply_date_preset,
+    draft_to_config,
+    ensure_default_dates,
+)
+from bot import wizard_steps
 from bot.keyboards import (
     asset_class_keyboard,
     balance_keyboard,
@@ -57,7 +64,7 @@ async def start_wizard(callback: CallbackQuery, state: FSMContext) -> None:
     await push_step(state, "asset")
     try:
         await callback.message.edit_text(
-            bold("Step 1 — Asset class") + "\nPilih kelas aset." + footer(draft),
+            wizard_steps.step_asset_title() + footer(draft),
             reply_markup=asset_class_keyboard(),
         )
     finally:
@@ -97,7 +104,7 @@ async def pick_asset(callback: CallbackQuery, state: FSMContext) -> None:
         await state.update_data(**_save_draft(data, draft))
         await push_step(state, "instrument")
         await callback.message.edit_text(
-            bold("Step 2 — Instrument") + "\nPilih satu instrument." + footer(draft),
+            wizard_steps.step_instrument_title() + footer(draft),
             reply_markup=instrument_keyboard(draft),
         )
     except Exception:
@@ -129,36 +136,19 @@ async def pick_instrument(callback: CallbackQuery, state: FSMContext) -> None:
     cov_lines = await asyncio.to_thread(coverage_summary_lines, prof.data_symbol)
     if cov_lines:
         extra += "\n" + "\n".join(html_escape(line) for line in cov_lines)
+    ensure_default_dates(draft, "6mo")
     await state.update_data(**_save_draft(data, draft))
-    await push_step(state, "dates")
+    await push_step(state, "timeframe_primary")
+    extra += f"\nPeriode default: {wizard_steps.dates_footer_line(draft)} (ubah di Review)."
     await callback.message.edit_text(
-        bold("Step 3 — Date range") + extra + footer(draft),
-        reply_markup=date_preset_keyboard(),
+        wizard_steps.step_timeframe_title() + extra + footer(draft),
+        reply_markup=primary_tf_keyboard(),
     )
     await callback.answer()
 
 
 def _apply_date_preset(preset: str, draft: BacktestDraft) -> tuple[date, date]:
-    from datetime import date as date_cls
-
-    from engine.instruments import catalog_date_bounds
-
-    end = date_cls.today()
-    start_default = end - timedelta(days=365)
-    if draft.instrument:
-        bounds = catalog_date_bounds(draft.instrument)
-        if bounds:
-            start_default, end = bounds
-    if preset == "6mo":
-        return max(start_default, end - timedelta(days=180)), end
-    if preset == "1y":
-        return max(start_default, end - timedelta(days=365)), end
-    if preset == "max":
-        return start_default, end
-    if preset == "2024":
-        d0, d1 = date(2024, 1, 1), date(2024, 12, 31)
-        return max(start_default, d0), min(end, d1)
-    return start_default, end
+    return apply_date_preset(preset, draft)
 
 
 @router.callback_query(F.data.startswith("wiz:date:"))
@@ -177,11 +167,14 @@ async def pick_date(callback: CallbackQuery, state: FSMContext) -> None:
         return
     draft.date_from, draft.date_to = _apply_date_preset(kind, draft)
     await state.update_data(**_save_draft(data, draft))
+    if data.get("dates_return") == "review":
+        await state.update_data(dates_return=None)
+        await push_step(state, "review")
+        await _show_review(callback.message, state, draft)
+        await callback.answer()
+        return
     await push_step(state, "session")
-    await callback.message.edit_text(
-        bold("Step 4 — Session") + "\nEntry at bar close; fill next bar open." + footer(draft),
-        reply_markup=session_keyboard(draft),
-    )
+    await wizard_steps.show_session(callback.message, draft)
     await callback.answer()
 
 
@@ -205,7 +198,7 @@ async def custom_date_input(message: Message, state: FSMContext) -> None:
     await state.update_data(**_save_draft(data, draft))
     await push_step(state, "session")
     await message.answer(
-        bold("Step 4 — Session") + footer(draft),
+        wizard_steps.step_session_title() + footer(draft),
         reply_markup=session_keyboard(draft),
     )
 
@@ -217,16 +210,21 @@ async def pick_session(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     draft = _load_draft(data)
     sid = callback.data.split(":")[-1]
+    if sid == "advanced":
+        await push_step(state, "session_toggles")
+        await callback.message.edit_text(
+            bold("Session — advanced") + footer(draft),
+            reply_markup=session_toggles_keyboard(draft),
+        )
+        await callback.answer()
+        return
     draft.session_id = SessionId(sid)
     if draft.asset_class == "cfd":
         draft.session_trading = True
         draft.session_accounting = True
     await state.update_data(**_save_draft(data, draft))
-    await push_step(state, "session_toggles")
-    await callback.message.edit_text(
-        bold("Session toggles") + footer(draft),
-        reply_markup=session_toggles_keyboard(draft),
-    )
+    await push_step(state, "risk_reward")
+    await wizard_steps.show_risk_reward(callback.message, draft)
     await callback.answer()
 
 
@@ -244,11 +242,8 @@ async def session_toggles(callback: CallbackQuery, state: FSMContext) -> None:
     elif action == "utc":
         draft.prop_daily_reset_utc = not draft.prop_daily_reset_utc
     elif action == "done":
-        await push_step(state, "timeframe_primary")
-        await callback.message.edit_text(
-            bold("Step 5 — Primary timeframe") + footer(draft),
-            reply_markup=primary_tf_keyboard(),
-        )
+        await push_step(state, "risk_reward")
+        await wizard_steps.show_risk_reward(callback.message, draft)
         await callback.answer()
         return
     await state.update_data(**_save_draft(data, draft))
@@ -274,11 +269,8 @@ async def pick_primary_tf(callback: CallbackQuery, state: FSMContext) -> None:
         await show_study_pool(callback.message, draft)
         await callback.answer()
         return
-    await push_step(state, "timeframe_context")
-    await callback.message.edit_text(
-        bold("Context timeframes") + " (multi-select)" + footer(draft),
-        reply_markup=context_tf_keyboard(draft.context_tfs),
-    )
+    await push_step(state, "strategy_mode")
+    await wizard_steps.show_indicator_mode(callback.message, draft)
     await callback.answer()
 
 
@@ -311,6 +303,20 @@ async def pick_context_tf(callback: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(**_save_draft(data, draft))
     await callback.message.edit_text(
         bold("Context timeframes") + footer(draft),
+        reply_markup=context_tf_keyboard(draft.context_tfs),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "wiz:str:context")
+async def strategy_context_optional(callback: CallbackQuery, state: FSMContext) -> None:
+    from bot.wizard_nav import push_step
+
+    data = await state.get_data()
+    draft = _load_draft(data)
+    await push_step(state, "timeframe_context")
+    await callback.message.edit_text(
+        bold("Context TF (optional)") + footer(draft),
         reply_markup=context_tf_keyboard(draft.context_tfs),
     )
     await callback.answer()
@@ -354,13 +360,13 @@ async def pick_strategy_preset(callback: CallbackQuery, state: FSMContext) -> No
     draft = _load_draft(data)
     draft.strategy_preset = callback.data.split(":")[-1]
     await state.update_data(**_save_draft(data, draft))
-    await push_step(state, "prop")
+    await push_step(state, "session")
     hint = ""
     if draft.strategy_preset == "cipher_b":
         hint = "\n<i>Disarankan primary 30m (Coinbase: resample dari 15m).</i>"
     await callback.message.edit_text(
-        bold("Step 7 — Prop firm") + hint + footer(draft),
-        reply_markup=prop_keyboard(),
+        wizard_steps.step_session_title() + hint + footer(draft),
+        reply_markup=session_keyboard(draft),
     )
     await callback.answer()
 
@@ -374,6 +380,7 @@ async def pick_prop(callback: CallbackQuery, state: FSMContext) -> None:
     pack = callback.data.split(":")[-1]
     draft.prop_pack = pack
     if pack == "none":
+        draft.execution_risk_reward_ratio = None
         await state.update_data(**_save_draft(data, draft))
         await push_step(state, "balance")
         await callback.message.edit_text(
@@ -398,19 +405,24 @@ async def pick_prop(callback: CallbackQuery, state: FSMContext) -> None:
         return
     if pack == "custom":
         draft.prop_pack = "generic"
+        draft.prop_consistency_rule = None
+        draft.prop_consistency_pct = None
         await state.update_data(**_save_draft(data, draft))
         await push_step(state, "prop_params")
         await callback.message.edit_text(
-            bold("Custom prop %") + footer(draft),
-            reply_markup=prop_custom_keyboard(),
+            bold("Custom prop")
+            + "\nMax loss = max DD % · daily loss % · profit target · min days · consistency."
+            + footer(draft),
+            reply_markup=prop_custom_keyboard(draft),
         )
         await callback.answer()
         return
     if pack == "generic":
+        await state.update_data(**_save_draft(data, draft))
         await push_step(state, "prop_params")
         await callback.message.edit_text(
             "Generic params" + footer(draft),
-            reply_markup=prop_params_keyboard(),
+            reply_markup=prop_params_keyboard(draft),
         )
     else:
         _apply_prop_template(draft, pack)
@@ -418,7 +430,7 @@ async def pick_prop(callback: CallbackQuery, state: FSMContext) -> None:
         await push_step(state, "prop_params")
         await callback.message.edit_text(
             f"Pack {code(pack)} — adjust or Continue" + footer(draft),
-            reply_markup=prop_custom_keyboard(),
+            reply_markup=prop_custom_keyboard(draft),
         )
     await callback.answer()
 
@@ -442,8 +454,10 @@ async def load_prop_template_cb(callback: CallbackQuery, state: FSMContext) -> N
     title = pack.label or pack_id
     await push_step(state, "prop_params")
     await callback.message.edit_text(
-        bold(title) + "\nAdjust % or Continue (balance preset to $50k if set)." + footer(draft),
-        reply_markup=prop_custom_keyboard(),
+        bold(title)
+        + "\nSesuaikan limit % / consistency atau Continue."
+        + footer(draft),
+        reply_markup=prop_custom_keyboard(draft),
     )
     await callback.answer()
 
@@ -456,13 +470,111 @@ def _apply_prop_template(draft: BacktestDraft, pack_id: str) -> None:
     draft.prop_min_trading_days = pack.min_trading_days
     if pack.initial_balance_usd is not None:
         draft.initial_balance = float(pack.initial_balance_usd)
+    defaults = pack.execution_defaults or {}
+    if defaults.get("mode") == "sltp_risk":
+        if draft.execution_risk_reward_ratio is None:
+            draft.execution_risk_reward_ratio = float(defaults.get("risk_reward_ratio", 2.0))
+    rule = pack.consistency_rule or "none"
+    if rule != "none":
+        draft.prop_consistency_rule = rule
+        draft.prop_consistency_pct = pack.consistency_pct
+    else:
+        draft.prop_consistency_rule = None
+        draft.prop_consistency_pct = None
+
+
+async def _finish_prop_params(message: Message, state: FSMContext, draft: BacktestDraft) -> None:
+    from bot.wizard_nav import push_step
+
+    data = await state.get_data()
+    await state.update_data(**_save_draft(data, draft))
+    if draft.prop_pack in (None, "none"):
+        await push_step(state, "balance")
+        await message.edit_text(
+            bold("Balance") + footer(draft),
+            reply_markup=balance_keyboard(),
+        )
+        return
+    pack = load_prop_pack(draft.prop_pack or "generic")
+    if pack.initial_balance_usd is not None or draft.initial_balance:
+        await push_step(state, "review")
+        await _show_review(message, state, draft)
+        return
+    await push_step(state, "balance")
+    await message.edit_text(
+        bold("Balance") + footer(draft),
+        reply_markup=balance_keyboard(),
+    )
+
+
+def _prop_params_title(draft: BacktestDraft) -> str:
+    if draft.prop_pack and draft.prop_pack not in ("none", "generic", "templates"):
+        return f"Template {code(draft.prop_pack)}"
+    if draft.prop_pack == "generic":
+        return bold("Custom prop")
+    return "Generic params"
+
+
+def _prop_params_markup(draft: BacktestDraft) -> InlineKeyboardMarkup:
+    if draft.prop_pack == "generic":
+        return prop_params_keyboard(draft)
+    return prop_custom_keyboard(draft)
+
+
+def _prop_params_body(draft: BacktestDraft, title: str) -> str:
+    from bot.fsm.validation import pack_uses_sltp_risk
+
+    extra = ""
+    if pack_uses_sltp_risk(draft.prop_pack):
+        rr = draft.execution_risk_reward_ratio or 2.0
+        extra = f"\nRisk:reward: <b>1:{rr:g}</b>"
+    return title + extra + footer(draft)
+
+
+@router.callback_query(F.data.startswith("wiz:rr:"))
+async def pick_risk_reward(callback: CallbackQuery, state: FSMContext) -> None:
+    from bot.wizard_nav import push_step
+
+    data = await state.get_data()
+    draft = _load_draft(data)
+    token = callback.data.split(":")[-1]
+    if token == "done":
+        await state.update_data(**_save_draft(data, draft))
+        await push_step(state, "prop")
+        await wizard_steps.show_prop(callback.message, draft)
+        await callback.answer()
+        return
+    draft.execution_risk_reward_ratio = float(token)
+    await state.update_data(**_save_draft(data, draft))
+    await wizard_steps.show_risk_reward(callback.message, draft)
+    await callback.answer("R:R updated")
 
 
 @router.callback_query(F.data.startswith("wiz:propp:"))
 async def prop_params(callback: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     draft = _load_draft(data)
-    p = callback.data.split(":")[-1]
+    parts = callback.data.split(":")
+    if len(parts) >= 4 and parts[2] == "cons":
+        tag = parts[3]
+        if tag == "none":
+            draft.prop_consistency_rule = "none"
+            draft.prop_consistency_pct = None
+        elif tag == "hola20":
+            draft.prop_consistency_rule = "hola_best_day"
+            draft.prop_consistency_pct = 20.0
+        elif tag == "top50":
+            draft.prop_consistency_rule = "topstep_target_ratio"
+            draft.prop_consistency_pct = None
+        await state.update_data(**_save_draft(data, draft))
+        title = _prop_params_title(draft)
+        await callback.message.edit_text(
+            _prop_params_body(draft, title),
+            reply_markup=_prop_params_markup(draft),
+        )
+        await callback.answer("Consistency updated")
+        return
+    p = parts[-1]
     if p == "d5":
         draft.prop_daily_loss_pct = 5.0
     elif p == "d4":
@@ -484,17 +596,15 @@ async def prop_params(callback: CallbackQuery, state: FSMContext) -> None:
     elif p == "min4":
         draft.prop_min_trading_days = 4
     elif p == "done":
-        from bot.wizard_nav import push_step
-
-        await state.update_data(**_save_draft(data, draft))
-        await push_step(state, "balance")
-        await callback.message.edit_text(
-            bold("Step 8 — Balance") + footer(draft),
-            reply_markup=balance_keyboard(),
-        )
+        await _finish_prop_params(callback.message, state, draft)
         await callback.answer()
         return
     await state.update_data(**_save_draft(data, draft))
+    title = _prop_params_title(draft)
+    await callback.message.edit_text(
+        _prop_params_body(draft, title),
+        reply_markup=_prop_params_markup(draft),
+    )
     await callback.answer("Updated")
 
 
@@ -595,6 +705,21 @@ async def save_preset_name(message: Message, state: FSMContext, db: Database) ->
     await message.answer(f"Preset {code(name)} saved.")
 
 
+@router.callback_query(F.data == "wiz:review:dates")
+async def review_change_dates(callback: CallbackQuery, state: FSMContext) -> None:
+    from bot.wizard_nav import push_step
+
+    data = await state.get_data()
+    draft = _load_draft(data)
+    await state.update_data(dates_return="review")
+    await push_step(state, "dates")
+    await callback.message.edit_text(
+        wizard_steps.step_dates_title() + footer(draft),
+        reply_markup=date_preset_keyboard(),
+    )
+    await callback.answer()
+
+
 @router.callback_query(F.data == "wiz:cancel")
 async def cancel_wizard(callback: CallbackQuery, state: FSMContext, db: Database) -> None:
     await state.clear()
@@ -616,32 +741,22 @@ async def wizard_back(callback: CallbackQuery, state: FSMContext, db: Database) 
     draft = _load_draft(data)
     if prev == "asset":
         await callback.message.edit_text(
-            bold("Step 1 — Asset class") + footer(draft),
+            wizard_steps.step_asset_title() + footer(draft),
             reply_markup=asset_class_keyboard(),
         )
     elif prev == "instrument":
         await callback.message.edit_text(
-            bold("Step 2 — Instrument") + footer(draft),
+            wizard_steps.step_instrument_title() + footer(draft),
             reply_markup=instrument_keyboard(draft),
         )
     elif prev == "dates":
         await callback.message.edit_text(
-            bold("Step 3 — Date range") + footer(draft),
+            wizard_steps.step_dates_title() + footer(draft),
             reply_markup=date_preset_keyboard(),
-        )
-    elif prev == "session":
-        await callback.message.edit_text(
-            bold("Step 4 — Session") + footer(draft),
-            reply_markup=session_keyboard(draft),
-        )
-    elif prev == "session_toggles":
-        await callback.message.edit_text(
-            bold("Session toggles") + footer(draft),
-            reply_markup=session_toggles_keyboard(draft),
         )
     elif prev == "timeframe_primary":
         await callback.message.edit_text(
-            bold("Step 5 — Primary timeframe") + footer(draft),
+            wizard_steps.step_timeframe_title() + footer(draft),
             reply_markup=primary_tf_keyboard(),
         )
     elif prev == "timeframe_context":
@@ -655,9 +770,18 @@ async def wizard_back(callback: CallbackQuery, state: FSMContext, db: Database) 
         await show_study_pool(callback.message, draft)
     elif prev == "strategy_mode":
         await callback.message.edit_text(
-            bold("Step 6 — Strategy") + footer(draft),
+            wizard_steps.step_indicator_title(draft) + footer(draft),
             reply_markup=strategy_mode_keyboard(),
         )
+    elif prev == "session":
+        await wizard_steps.show_session(callback.message, draft)
+    elif prev == "session_toggles":
+        await callback.message.edit_text(
+            bold("Session — advanced") + footer(draft),
+            reply_markup=session_toggles_keyboard(draft),
+        )
+    elif prev == "risk_reward":
+        await wizard_steps.show_risk_reward(callback.message, draft)
     elif prev == "strategy_detail":
         if draft.strategy_mode == "custom":
             await show_strategy_builder(callback.message, draft)
@@ -667,26 +791,18 @@ async def wizard_back(callback: CallbackQuery, state: FSMContext, db: Database) 
                 reply_markup=strategy_preset_keyboard(),
             )
     elif prev == "prop":
-        await callback.message.edit_text(
-            bold("Step 7 — Prop firm") + footer(draft),
-            reply_markup=prop_keyboard(),
-        )
+        await wizard_steps.show_prop(callback.message, draft)
     elif prev == "prop_params":
         if draft.prop_pack and draft.prop_pack not in ("none", "generic", "templates"):
-            await callback.message.edit_text(
-                f"Template {code(draft.prop_pack)}" + footer(draft),
-                reply_markup=prop_custom_keyboard(),
-            )
+            title = f"Template {code(draft.prop_pack)}"
         elif draft.prop_pack == "generic":
-            await callback.message.edit_text(
-                bold("Custom prop %") + footer(draft),
-                reply_markup=prop_custom_keyboard(),
-            )
+            title = bold("Custom prop")
         else:
-            await callback.message.edit_text(
-                "Generic params" + footer(draft),
-                reply_markup=prop_params_keyboard(),
-            )
+            title = "Generic params"
+        await callback.message.edit_text(
+            _prop_params_body(draft, title),
+            reply_markup=_prop_params_markup(draft),
+        )
     elif prev == "balance":
         await callback.message.edit_text(
             bold("Step 8 — Balance") + footer(draft),

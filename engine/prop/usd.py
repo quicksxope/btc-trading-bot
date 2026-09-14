@@ -26,6 +26,12 @@ class PropUsdSpec:
     consistency_target_ratio: float = 0.5
 
 
+def _resolve_consistency_rule(prop: PropFirmConfig, pack) -> str:
+    if prop.consistency_rule is not None:
+        return prop.consistency_rule if prop.consistency_rule else "none"
+    return pack.consistency_rule or "none"
+
+
 def pack_uses_usd_engine(pack_id: str) -> bool:
     return load_prop_pack(pack_id).engine == "usd"
 
@@ -67,8 +73,10 @@ def resolve_usd_spec(prop: PropFirmConfig, initial_balance: float) -> PropUsdSpe
         mll_lock_at_initial=pack.mll_lock_at_initial,
         profit_target_usd=float(pt) if pt is not None else None,
         min_trading_days=prop.min_trading_days if prop.min_trading_days is not None else pack.min_trading_days,
-        consistency_pct=pack.consistency_pct,
-        consistency_rule=pack.consistency_rule,
+        consistency_pct=(
+            prop.consistency_pct if prop.consistency_pct is not None else pack.consistency_pct
+        ),
+        consistency_rule=_resolve_consistency_rule(prop, pack),
         consistency_target_ratio=pack.consistency_target_ratio,
     )
 

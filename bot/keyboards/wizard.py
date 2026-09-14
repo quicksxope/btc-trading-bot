@@ -85,6 +85,9 @@ def session_keyboard(draft: BacktestDraft) -> InlineKeyboardMarkup:
         rows.append(
             [InlineKeyboardButton(text="24/7 (crypto)", callback_data="wiz:sess:all_day")]
         )
+    rows.append(
+        [InlineKeyboardButton(text="Advanced session…", callback_data="wiz:sess:advanced")]
+    )
     rows.append(nav_row())
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -144,9 +147,20 @@ def strategy_mode_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [InlineKeyboardButton(text="Preset strategy", callback_data="wiz:str:preset")],
             [InlineKeyboardButton(text="Custom indicators", callback_data="wiz:str:custom")],
+            [InlineKeyboardButton(text="Context TF (optional)", callback_data="wiz:str:context")],
             nav_row(),
         ]
     )
+
+
+def risk_reward_keyboard(draft: "BacktestDraft | None" = None) -> InlineKeyboardMarkup:
+    from bot.fsm.validation import BacktestDraft
+
+    d = draft or BacktestDraft()
+    rows: list[list[InlineKeyboardButton]] = [_rr_row(d.execution_risk_reward_ratio)]
+    rows.append([InlineKeyboardButton(text="Continue »", callback_data="wiz:rr:done")])
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def strategy_preset_keyboard() -> InlineKeyboardMarkup:
@@ -182,7 +196,7 @@ def custom_indicator_keyboard() -> InlineKeyboardMarkup:
 def prop_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="None (PnL only)", callback_data="wiz:prop:none")],
+            [InlineKeyboardButton(text="Semua paket ter-mapping…", callback_data="wiz:prop:templates")],
             [
                 InlineKeyboardButton(
                     text="Hola 1-Step $50K",
@@ -193,10 +207,14 @@ def prop_keyboard() -> InlineKeyboardMarkup:
                     callback_data="wiz:prop:load:topstep_50k_combine",
                 ),
             ],
-            [InlineKeyboardButton(text="Generic challenge", callback_data="wiz:prop:generic")],
-            [InlineKeyboardButton(text="Custom %", callback_data="wiz:prop:custom")],
-            [InlineKeyboardButton(text="More templates…", callback_data="wiz:prop:templates")],
-            [InlineKeyboardButton(text="FTMO-like pack", callback_data="wiz:prop:ftmo_like")],
+            [
+                InlineKeyboardButton(
+                    text="Hola Direct $50K",
+                    callback_data="wiz:prop:load:holaprime_direct_50k",
+                ),
+            ],
+            [InlineKeyboardButton(text="Custom (max loss, profit, …)", callback_data="wiz:prop:custom")],
+            [InlineKeyboardButton(text="Tanpa prop (PnL saja)", callback_data="wiz:prop:none")],
             nav_row(),
         ]
     )
@@ -217,46 +235,92 @@ def prop_template_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def prop_custom_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="Daily 5%", callback_data="wiz:propp:d5"),
-                InlineKeyboardButton(text="Daily 3%", callback_data="wiz:propp:d3"),
-            ],
-            [
-                InlineKeyboardButton(text="Max DD 10%", callback_data="wiz:propp:dd10"),
-                InlineKeyboardButton(text="Max DD 6%", callback_data="wiz:propp:dd6"),
-            ],
-            [
-                InlineKeyboardButton(text="Profit tgt 10%", callback_data="wiz:propp:pt10"),
-                InlineKeyboardButton(text="Clear target", callback_data="wiz:propp:pt0"),
-            ],
-            [
-                InlineKeyboardButton(text="Min days 2", callback_data="wiz:propp:min2"),
-                InlineKeyboardButton(text="Min days 4", callback_data="wiz:propp:min4"),
-            ],
-            [InlineKeyboardButton(text="Continue »", callback_data="wiz:propp:done")],
-            nav_row(),
-        ]
-    )
+def _rr_button(label: str, value: float, current: float | None) -> InlineKeyboardButton:
+    mark = " ✓" if current is not None and abs(current - value) < 1e-9 else ""
+    return InlineKeyboardButton(text=f"{label}{mark}", callback_data=f"wiz:rr:{value:g}")
 
 
-def prop_params_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="Daily 5%", callback_data="wiz:propp:d5"),
-                InlineKeyboardButton(text="Daily 4%", callback_data="wiz:propp:d4"),
-            ],
-            [
-                InlineKeyboardButton(text="Max DD 10%", callback_data="wiz:propp:dd10"),
-                InlineKeyboardButton(text="Max DD 8%", callback_data="wiz:propp:dd8"),
-            ],
-            [InlineKeyboardButton(text="Continue »", callback_data="wiz:propp:done")],
-            nav_row(),
-        ]
-    )
+def _rr_row(current: float | None) -> list[InlineKeyboardButton]:
+    cur = current if current is not None else 2.0
+    return [
+        _rr_button("1:1", 1.0, cur),
+        _rr_button("1:1.5", 1.5, cur),
+        _rr_button("1:2", 2.0, cur),
+        _rr_button("1:3", 3.0, cur),
+    ]
+
+
+def _consistency_btn(label: str, rule: str, pct: float | None, draft: "BacktestDraft") -> InlineKeyboardButton:
+    if rule == "none":
+        active = draft.prop_consistency_rule in (None, "", "none")
+    elif rule == "hola_best_day":
+        active = draft.prop_consistency_rule == "hola_best_day"
+    else:
+        active = draft.prop_consistency_rule == "topstep_target_ratio"
+    mark = " ✓" if active else ""
+    if rule == "none":
+        cb = "wiz:propp:cons:none"
+    elif rule == "hola_best_day":
+        cb = "wiz:propp:cons:hola20"
+    else:
+        cb = "wiz:propp:cons:top50"
+    return InlineKeyboardButton(text=f"{label}{mark}", callback_data=cb)
+
+
+def _consistency_row(draft: "BacktestDraft") -> list[InlineKeyboardButton]:
+    return [
+        _consistency_btn("Cons off", "none", None, draft),
+        _consistency_btn("Cons 20%", "hola_best_day", 20.0, draft),
+        _consistency_btn("Cons 50% tgt", "topstep_target_ratio", None, draft),
+    ]
+
+
+def prop_custom_keyboard(draft: "BacktestDraft | None" = None) -> InlineKeyboardMarkup:
+    from bot.fsm.validation import BacktestDraft
+
+    d = draft or BacktestDraft()
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(text="Daily loss 5%", callback_data="wiz:propp:d5"),
+            InlineKeyboardButton(text="Daily loss 3%", callback_data="wiz:propp:d3"),
+        ],
+        [
+            InlineKeyboardButton(text="Max loss 10%", callback_data="wiz:propp:dd10"),
+            InlineKeyboardButton(text="Max loss 6%", callback_data="wiz:propp:dd6"),
+        ],
+        [
+            InlineKeyboardButton(text="Profit 10%", callback_data="wiz:propp:pt10"),
+            InlineKeyboardButton(text="No profit tgt", callback_data="wiz:propp:pt0"),
+        ],
+        [
+            InlineKeyboardButton(text="Min days 2", callback_data="wiz:propp:min2"),
+            InlineKeyboardButton(text="Min days 4", callback_data="wiz:propp:min4"),
+        ],
+    ]
+    rows.append(_consistency_row(d))
+    rows.append([InlineKeyboardButton(text="Continue »", callback_data="wiz:propp:done")])
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def prop_params_keyboard(draft: "BacktestDraft | None" = None) -> InlineKeyboardMarkup:
+    from bot.fsm.validation import BacktestDraft
+
+    d = draft or BacktestDraft()
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(text="Daily 5%", callback_data="wiz:propp:d5"),
+            InlineKeyboardButton(text="Daily 4%", callback_data="wiz:propp:d4"),
+        ],
+        [
+            InlineKeyboardButton(text="Max DD 10%", callback_data="wiz:propp:dd10"),
+            InlineKeyboardButton(text="Max DD 8%", callback_data="wiz:propp:dd8"),
+        ],
+    ]
+    rows.append(_consistency_row(d))
+    rows.append([InlineKeyboardButton(text="Continue »", callback_data="wiz:propp:done")])
+    rows.append(nav_row())
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def balance_keyboard() -> InlineKeyboardMarkup:
@@ -277,7 +341,10 @@ def review_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Run", callback_data="wiz:run")],
-            [InlineKeyboardButton(text="Save as preset", callback_data="wiz:save_preset")],
-            nav_row(back_cb="wiz:review:edit"),
+            [
+                InlineKeyboardButton(text="Ubah periode", callback_data="wiz:review:dates"),
+                InlineKeyboardButton(text="Save preset", callback_data="wiz:save_preset"),
+            ],
+            nav_row(back_cb="wiz:back"),
         ]
     )

@@ -55,14 +55,17 @@ async def cmd_new(message: Message, state: FSMContext, db: Database) -> None:
     draft = BacktestDraft()
     await state.update_data(draft=draft.__dict__)
     await state.set_state(WizardStates.active)
+    from bot import wizard_steps
+
     await message.answer(
-        bold("Step 1 — Asset class") + "\nPilih kelas aset." + footer(draft),
+        wizard_steps.step_asset_title() + footer(draft),
         reply_markup=asset_class_keyboard(),
     )
 
 
 @router.callback_query(F.data == "home:study")
 async def home_study(callback: CallbackQuery, state: FSMContext, db: Database) -> None:
+    from bot import wizard_steps
     from bot.states import WizardStates
     from bot.wizard_nav import clear_stack, push_step
 
@@ -77,7 +80,7 @@ async def home_study(callback: CallbackQuery, state: FSMContext, db: Database) -
     await clear_stack(state)
     await push_step(state, "asset")
     await callback.message.edit_text(
-        bold("Indicator study — Step 1 — Asset class") + footer(draft),
+        bold("Indicator study") + "\n" + wizard_steps.step_asset_title() + footer(draft),
         reply_markup=asset_class_keyboard(),
     )
     await callback.answer()

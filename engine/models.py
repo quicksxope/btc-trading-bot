@@ -73,6 +73,8 @@ class PropFirmConfig(BaseModel):
     max_drawdown_pct: float = 10.0
     profit_target_pct: float | None = None
     min_trading_days: int | None = None
+    consistency_pct: float | None = None
+    consistency_rule: str | None = None
 
 
 class ExecutionConfig(BaseModel):

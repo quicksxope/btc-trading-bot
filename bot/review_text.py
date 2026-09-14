@@ -69,10 +69,28 @@ def review_summary_html(draft: BacktestDraft) -> str:
             if draft.prop_min_trading_days is not None:
                 extra += f" / min days {draft.prop_min_trading_days}"
             lines.append(f"Engine limits: {extra}")
-        if pack.engine == "usd":
-            lines.append("<i>USD prop engine + SL/TP risk sizing when template defines execution_defaults.</i>")
-        elif pack.execution_defaults and pack.execution_defaults.get("mode") == "sltp_risk":
-            lines.append("<i>SL/TP swing stops + risk/trade from prop template.</i>")
+        exec_defaults = pack.execution_defaults or {}
+        if exec_defaults.get("mode") == "sltp_risk":
+            rr = draft.execution_risk_reward_ratio
+            if rr is None:
+                rr = float(exec_defaults.get("risk_reward_ratio", 2.0))
+            lines.append(
+                f"Execution: SL/TP swing · risk/trade from template · R:R <b>1:{rr:g}</b>"
+            )
+        elif pack.engine == "usd":
+            lines.append("<i>USD prop engine (no SL/TP template on this pack).</i>")
+        rule = draft.prop_consistency_rule
+        if rule and rule != "none":
+            if rule == "hola_best_day" and draft.prop_consistency_pct:
+                lines.append(f"Consistency: Hola best-day ≤ {draft.prop_consistency_pct:g}%")
+            elif rule == "topstep_target_ratio":
+                lines.append("Consistency: TopStep best-day vs profit target (50%)")
+        elif pack.consistency_rule and pack.consistency_rule != "none":
+            if pack.consistency_pct:
+                lines.append(f"Consistency: template {pack.consistency_pct:g}% rule")
+
+    if draft.session_id:
+        lines.append(f"Trading time: {escape(draft.session_id.value)}")
 
     lines.append(f"Balance: ${draft.initial_balance:,.0f}")
     lines.append(f"Fill: {escape(draft.fill_model)}")

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Literal
 
 from engine.models import (
@@ -51,6 +51,9 @@ class BacktestDraft:
     prop_max_dd_pct: float | None = 10.0
     prop_profit_target_pct: float | None = None
     prop_min_trading_days: int | None = None
+    execution_risk_reward_ratio: float | None = 2.0
+    prop_consistency_pct: float | None = None
+    prop_consistency_rule: str | None = None
     initial_balance: float = 100_000.0
     fill_model: str = "next_bar_open"
 
@@ -72,6 +75,32 @@ class BacktestDraft:
             f"Instrument: {inst} | Session: {sess_s} | "
             f"TF: {tf} + {ctx} | Prop: {prop} | Fill: next bar open"
         )
+
+
+def apply_date_preset(preset: str, draft: BacktestDraft) -> tuple[date, date]:
+    from engine.instruments import catalog_date_bounds
+
+    end = date.today()
+    start_default = end - timedelta(days=365)
+    if draft.instrument:
+        bounds = catalog_date_bounds(draft.instrument)
+        if bounds:
+            start_default, end = bounds
+    if preset == "6mo":
+        return max(start_default, end - timedelta(days=180)), end
+    if preset == "1y":
+        return max(start_default, end - timedelta(days=365)), end
+    if preset == "max":
+        return start_default, end
+    if preset == "2024":
+        d0, d1 = date(2024, 1, 1), date(2024, 12, 31)
+        return max(start_default, d0), min(end, d1)
+    return start_default, end
+
+
+def ensure_default_dates(draft: BacktestDraft, preset: str = "6mo") -> None:
+    if draft.date_from is None or draft.date_to is None:
+        draft.date_from, draft.date_to = apply_date_preset(preset, draft)
 
 
 class ValidationError(Exception):
@@ -175,6 +204,15 @@ def validate_strategy(draft: BacktestDraft) -> None:
         raise ValidationError("Pilih mode strategy.", "strategy_mode")
 
 
+def pack_uses_sltp_risk(pack_id: str | None) -> bool:
+    if not pack_id or pack_id in ("none", "generic", "templates"):
+        return False
+    from engine.prop_firm import load_prop_pack
+
+    pack = load_prop_pack(pack_id)
+    return (pack.execution_defaults or {}).get("mode") == "sltp_risk"
+
+
 def validate_prop(draft: BacktestDraft) -> None:
     if draft.prop_pack in (None, "none"):
         return
@@ -184,6 +222,10 @@ def validate_prop(draft: BacktestDraft) -> None:
         raise ValidationError("Daily loss % harus 0–100.", "prop_firm")
     if not (0 < draft.prop_max_dd_pct <= 100):
         raise ValidationError("Max DD % harus 0–100.", "prop_firm")
+    if draft.execution_risk_reward_ratio is not None:
+        rr = draft.execution_risk_reward_ratio
+        if not (0.25 <= rr <= 20):
+            raise ValidationError("Risk:reward harus antara 0.25 dan 20.", "prop_firm")
 
 
 def validate_balance(draft: BacktestDraft) -> None:
@@ -228,6 +270,12 @@ def draft_to_config(draft: BacktestDraft) -> BacktestConfig:
             max_drawdown_pct=draft.prop_max_dd_pct or 10.0,
             profit_target_pct=draft.prop_profit_target_pct,
             min_trading_days=draft.prop_min_trading_days,
+            consistency_pct=draft.prop_consistency_pct,
+            consistency_rule=(
+                None
+                if draft.prop_consistency_rule in (None, "", "none")
+                else draft.prop_consistency_rule
+            ),
         )
 
     meta: dict = {"created_at": datetime.utcnow().isoformat() + "Z"}
@@ -270,6 +318,13 @@ def draft_to_config(draft: BacktestDraft) -> BacktestConfig:
     )
     if draft.prop_pack and draft.prop_pack not in (None, "none"):
         execution = enrich_execution_from_pack(execution, draft.prop_pack)
+    if (
+        draft.execution_risk_reward_ratio is not None
+        and execution.mode == "sltp_risk"
+    ):
+        execution = execution.model_copy(
+            update={"risk_reward_ratio": draft.execution_risk_reward_ratio}
+        )
 
     return BacktestConfig(
         instrument=draft.instrument,
