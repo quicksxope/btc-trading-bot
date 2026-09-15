@@ -160,21 +160,28 @@ def run_indicator_study(
         cfg.strategy = strategy_for_mix(mix)
         cfg.timeframes = cfg.timeframes.model_copy(update={"context": []})
         stats = signal_stats(cfg.strategy, primary, context_frames, context_idx)
-        result, _, _, _, _ = simulate_backtest(
+        result, _, trades_df, _, _ = simulate_backtest(
             cfg, primary, context_frames, context_idx, profile
         )
-        rows.append(
-            {
-                "mix": list(mix),
-                "mix_label": mix_label(mix),
-                "result": result.model_dump(),
-                **stats,
-            }
-        )
+        row: dict[str, Any] = {
+            "mix": list(mix),
+            "mix_label": mix_label(mix),
+            "result": result.model_dump(),
+            **stats,
+        }
+        if not trades_df.empty:
+            row["_trades"] = json.loads(
+                trades_df.to_json(orient="records", date_format="iso")
+            )
+        rows.append(row)
 
     ranked = rank_study_rows(rows, prop_enabled=prop_on)
     best = ranked[0] if ranked else None
     pass_count = sum(1 for r in ranked if r["result"].get("prop_pass"))
+    # Transient: worker writes trades.csv then pops before finish_job (keep result_json lean).
+    best_trades: list[dict] = list((best or {}).get("_trades") or [])
+    for row in ranked:
+        row.pop("_trades", None)
 
     prog("Done", 100)
     return {
@@ -185,5 +192,6 @@ def run_indicator_study(
         "best_mix": best["mix"] if best else [],
         "best_mix_label": best["mix_label"] if best else "",
         "best": best["result"] if best else None,
+        "best_trades": best_trades,
         "rows": ranked,
     }

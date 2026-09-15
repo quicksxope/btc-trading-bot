@@ -156,3 +156,29 @@ def close_trade_pnl(
     if spread_points:
         pnl -= spread_points * point_value
     return pnl
+
+
+def sltp_trade_record(
+    trade: OpenTrade,
+    *,
+    exit_time: datetime,
+    exit_price: float,
+    exit_reason: str,
+    net_pnl: float,
+    contract_size: float,
+) -> dict:
+    risk_usd = abs(trade.entry_price - trade.stop_loss) * trade.size_units * contract_size
+    return {
+        "entry_time": trade.entry_time,
+        "entry_price": trade.entry_price,
+        "stop_loss": trade.stop_loss,
+        "take_profit": trade.take_profit,
+        "exit_time": exit_time,
+        "exit_price": exit_price,
+        "size_units": trade.size_units,
+        "risk_usd": risk_usd,
+        "pnl": net_pnl,
+        "side": "long" if trade.direction > 0 else "short",
+        "exit_reason": exit_reason,
+        "r_multiple": net_pnl / risk_usd if risk_usd else 0.0,
+    }

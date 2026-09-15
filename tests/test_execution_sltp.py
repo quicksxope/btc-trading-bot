@@ -7,6 +7,7 @@ from engine.execution_sltp import (
     enrich_execution_from_pack,
     intrabar_exit,
     size_units_for_risk,
+    sltp_trade_record,
     swing_stops_long,
 )
 from engine.models import ExecutionConfig, PropFirmConfig
@@ -42,6 +43,23 @@ def test_capped_risk_per_trade_one_tenth_max_loss():
     )
     assert capped_risk_per_trade_usd(1000.0, prop, 50_000.0) == 300.0
     assert capped_risk_per_trade_usd(200.0, prop, 50_000.0) == 200.0
+
+
+def test_sltp_trade_record_fields():
+    t = OpenTrade(1, 100.0, 2.0, 98.0, 106.0, entry_time=pd.Timestamp("2024-01-01"))
+    rec = sltp_trade_record(
+        t,
+        exit_time=pd.Timestamp("2024-01-02"),
+        exit_price=106.0,
+        exit_reason="tp",
+        net_pnl=12.0,
+        contract_size=1.0,
+    )
+    assert rec["entry_price"] == 100.0
+    assert rec["stop_loss"] == 98.0
+    assert rec["take_profit"] == 106.0
+    assert rec["risk_usd"] == 4.0
+    assert rec["r_multiple"] == 3.0
 
 
 def test_enrich_from_hola_pack():

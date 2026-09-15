@@ -49,6 +49,14 @@ async def process_job(db: Database, job_id: str) -> None:
             payload = await asyncio.to_thread(
                 run_indicator_study, config, pool, _study_progress
             )
+            best_trades = payload.pop("best_trades", None) or []
+            if best_trades:
+                import pandas as pd
+
+                trades_df = pd.DataFrame(best_trades)
+                trades_path = folder / "trades.csv"
+                trades_df.to_csv(trades_path, index=False)
+                await db.register_artifact(job_id, "trades", str(trades_path))
             await db.save_study_record(job_id, job["telegram_id"], job["config_yaml"], payload)
             await db.finish_job(job_id, payload)
             best = payload.get("best") or {}

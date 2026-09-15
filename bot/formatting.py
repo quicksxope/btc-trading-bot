@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from html import escape
+from typing import TYPE_CHECKING
 
-from bot.fsm.validation import BacktestDraft
+if TYPE_CHECKING:
+    from bot.fsm.validation import BacktestDraft
+
+TELEGRAM_MESSAGE_LIMIT = 4096
 
 
 def footer(draft: BacktestDraft) -> str:
@@ -21,3 +25,16 @@ def code(text: str) -> str:
 
 def pre(text: str) -> str:
     return f"<pre>{escape(text)}</pre>"
+
+
+def fit_telegram_html(text: str, limit: int = TELEGRAM_MESSAGE_LIMIT) -> str:
+    """Clip HTML text to Telegram's message size without mid-tag chaos when possible."""
+    if len(text) <= limit:
+        return text
+    suffix = "\n<i>…truncated</i>"
+    budget = max(0, limit - len(suffix))
+    cut = text[:budget]
+    nl = cut.rfind("\n")
+    if nl > budget // 2:
+        cut = cut[:nl]
+    return cut + suffix

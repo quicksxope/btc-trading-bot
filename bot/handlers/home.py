@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
+import pandas as pd
 import yaml
 from aiogram import F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, FSInputFile, Message
 
-from bot.formatting import bold, footer
+from bot.formatting import bold, fit_telegram_html, footer
 from bot.menu import help_message_html
 from bot.review_text import hola_result_disclaimer
 from bot.fsm.validation import BacktestDraft
@@ -19,8 +21,24 @@ from engine.models import BacktestResult
 from storage import templates
 from storage.db import Database
 from storage.job_rank import leaderboard_text, rank_among_jobs
+from storage.trade_log import format_trades_html
 
 router = Router()
+
+
+def _trades_detail_from_artifacts(
+    arts: list[dict],
+    *,
+    limit: int = 12,
+    title: str = "Trade log",
+) -> str | None:
+    trades_art = next((a for a in arts if a["kind"] == "trades"), None)
+    if not trades_art or not Path(trades_art["path"]).is_file():
+        return None
+    df = pd.read_csv(trades_art["path"])
+    if df.empty:
+        return None
+    return format_trades_html(df, limit=limit, title=title)
 
 
 async def show_home(
@@ -223,7 +241,19 @@ async def deliver_job_results(bot, db: Database, job_id: str) -> None:
                 [InlineKeyboardButton(text="« Home", callback_data="home:back")],
             ]
         )
-        await bot.send_message(chat_id, text, reply_markup=kb)
+        await bot.send_message(chat_id, fit_telegram_html(text), reply_markup=kb)
+        arts = await db.list_artifacts(job_id)
+        best_label = raw_result.get("best_mix_label") or "best mix"
+        trades_detail = _trades_detail_from_artifacts(
+            arts,
+            limit=10,
+            title=f"Trades — best mix ({best_label})",
+        )
+        if trades_detail:
+            await bot.send_message(chat_id, fit_telegram_html(trades_detail))
+        for art in arts:
+            if art["kind"] == "trades":
+                await bot.send_document(chat_id, FSInputFile(art["path"]))
         return
 
     result = BacktestResult.model_validate(raw_result)
@@ -274,12 +304,18 @@ async def deliver_job_results(bot, db: Database, job_id: str) -> None:
             [InlineKeyboardButton(text="« Home", callback_data="home:back")],
         ]
     )
+    arts = await db.list_artifacts(job_id)
+    trades_detail = _trades_detail_from_artifacts(arts)
+
     await bot.send_message(
         chat_id,
-        templates.result_summary(job_id, result, sem, compare, footer_note),
+        fit_telegram_html(
+            templates.result_summary(job_id, result, sem, compare, footer_note)
+        ),
         reply_markup=kb,
     )
-    arts = await db.list_artifacts(job_id)
+    if trades_detail:
+        await bot.send_message(chat_id, fit_telegram_html(trades_detail))
     for art in arts:
         if art["kind"] in ("equity", "trades", "daily", "config", "chart"):
             await bot.send_document(chat_id, FSInputFile(art["path"]))

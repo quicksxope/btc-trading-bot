@@ -19,6 +19,7 @@ from engine.execution_sltp import (
     risk_budget_usd,
     capped_risk_per_trade_usd,
     size_units_for_risk,
+    sltp_trade_record,
     swing_stops_long,
     swing_stops_short,
 )
@@ -185,15 +186,15 @@ def simulate_backtest(
                     exit_price * open_trade.size_units * profile.contract_size * profile.fee_bps / 10000
                 )
                 equity += pnl - fee
-                risk_usd = abs(open_trade.entry_price - open_trade.stop_loss) * open_trade.size_units * profile.contract_size
                 trades.append(
-                    {
-                        "exit_time": ts,
-                        "pnl": pnl - fee,
-                        "side": "long" if open_trade.direction > 0 else "short",
-                        "exit_reason": reason,
-                        "r_multiple": (pnl - fee) / risk_usd if risk_usd else 0.0,
-                    }
+                    sltp_trade_record(
+                        open_trade,
+                        exit_time=ts,
+                        exit_price=exit_price,
+                        exit_reason=reason,
+                        net_pnl=pnl - fee,
+                        contract_size=profile.contract_size,
+                    )
                 )
                 open_trade = None
 
@@ -330,24 +331,30 @@ def simulate_backtest(
             profile.spread_points,
             profile.point_value,
         )
-        equity += pnl
+        fee = abs(
+            c * open_trade.size_units * profile.contract_size * profile.fee_bps / 10000
+        )
+        equity += pnl - fee
         trades.append(
-            {
-                "exit_time": last["timestamp"],
-                "pnl": pnl,
-                "side": "long" if open_trade.direction > 0 else "short",
-                "exit_reason": "finalize",
-            }
+            sltp_trade_record(
+                open_trade,
+                exit_time=last["timestamp"],
+                exit_price=c,
+                exit_reason="finalize",
+                net_pnl=pnl - fee,
+                contract_size=profile.contract_size,
+            )
         )
     elif not use_sltp and position != 0:
         last = primary.iloc[-1]
         c = float(last["close"])
         pnl = (c - entry_price) * position * profile.contract_size
-        equity += pnl
+        fee = abs(c * profile.contract_size * profile.fee_bps / 10000)
+        equity += pnl - fee
         trades.append(
             {
                 "exit_time": last["timestamp"],
-                "pnl": pnl,
+                "pnl": pnl - fee,
                 "side": "long" if position > 0 else "short",
             }
         )
